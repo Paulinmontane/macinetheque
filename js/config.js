@@ -11,11 +11,11 @@
 // ============================================================================
 
 // Adresse de ton projet, du type https://abcdefghijklmnop.supabase.co
-export const SUPABASE_URL = 'COLLE_ICI_TON_URL_SUPABASE';
+export const SUPABASE_URL = 'https://axwampplnhieyjaddrhw.supabase.co';
 
 // Clé publique : commence par « sb_publishable_… »
 // (l'ancienne clé « anon », qui commence par « eyJ… », fonctionne aussi)
-export const SUPABASE_PUBLISHABLE_KEY = 'COLLE_ICI_TA_CLE_PUBLISHABLE';
+export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Wtv8FHOGJAYbwyiOdXX9TA_ck6o9_CV';
 
 // Facultatif : une adresse email pour le service de traduction MyMemory.
 // Sans email : environ 5 000 caractères traduits par jour ; avec : 50 000.
