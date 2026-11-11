@@ -22,6 +22,24 @@ export function renderItem(root, { source, id, focusRating = false }) {
   const page = h('article', { class: 'item' });
   root.replaceChildren(page);
 
+  // Série trouvée via Wikidata sans identifiant TVMaze : on la retrouve sur TVMaze
+  // par son identifiant IMDb, puis on bascule sur sa vraie adresse
+  // (#/oeuvre/tvmaze/…), pour que notes et liste « à voir » soient bien rangées.
+  if (source === 'tvmaze-imdb') {
+    page.replaceChildren(backLink(), skeleton());
+    loadItem(source, id, signal).then((item) => {
+      if (!signal.aborted) location.replace(`#/oeuvre/tvmaze/${encodeURIComponent(item.source_id)}`);
+    }).catch((error) => {
+      if (isAbort(error) || signal.aborted) return;
+      page.replaceChildren(backLink(), emptyState({
+        iconName: 'search',
+        title: 'Fiche indisponible',
+        text: 'Cette série est introuvable sur TVMaze, ou le service ne répond pas pour le moment.',
+      }));
+    });
+    return () => { controller.abort(); translator.stop(); };
+  }
+
   // 1) Affichage immédiat de ce qu'on connaît déjà (suggestion cliquée, ou
   //    copie de la collection), sinon un squelette de chargement.
   const known = recall(source, id) || findItem(source, id);

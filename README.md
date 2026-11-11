@@ -260,7 +260,7 @@ macinetheque/
     ├── api/
     │   ├── tvmaze.js       séries, saisons, épisodes
     │   ├── itunes.js       films (boutique iTunes française)
-    │   ├── wikidata.js     films + pays de production (Wikidata) ; affiche et résumé (Wikipédia)
+    │   ├── wikidata.js     films + pays (Wikidata), séries par début de titre ; affiche et résumé (Wikipédia)
     │   └── translate.js    traduction anglais → français (MyMemory) + cache
     ├── ui/
     │   ├── search.js       barre de recherche et autocomplétion
@@ -296,7 +296,7 @@ Toutes les API utilisées autorisent les appels depuis un site web : **aucun ser
 |---|---|---|---|
 | TVMaze `api.tvmaze.com` | Séries, saisons, épisodes | Aucune | ✅ vérifié |
 | iTunes Search `itunes.apple.com` | Films : titre, affiche (600×600), résumé français | Aucune | ✅ vérifié |
-| Wikidata `query.wikidata.org` | Films : recherche, année, pays de production, genres, durée | Aucune | ✅ vérifié |
+| Wikidata `query.wikidata.org` | Films : recherche, année, pays de production, genres, durée. Séries : recherche par début de titre | Aucune | ✅ vérifié |
 | Wikipédia `fr.` / `en.wikipedia.org` | Films : affiche et résumé d'introduction | Aucune | ✅ vérifié |
 | MyMemory `api.mymemory.translated.net` | Traduction anglais → français | Aucune | ✅ vérifié |
 
@@ -304,7 +304,7 @@ Toutes les API utilisées autorisent les appels depuis un site web : **aucun ser
 
 - **Films** : l'API iTunes ne renvoie aujourd'hui presque plus de films (« Inception » y est introuvable) et bloque au-delà d'une vingtaine de recherches par minute. Le site l'interroge toujours en premier, mais c'est **Wikidata + Wikipédia** qui fournit la plupart des films. Conséquences : les affiches venant de Wikipédia sont de petite taille, et le « résumé » est l'introduction de l'article Wikipédia plutôt qu'un vrai synopsis.
 - **Recherche de films** : elle passe par Wikidata, qui met d'une à quelques secondes à répondre. Les séries (TVMaze) s'affichent tout de suite, les films arrivent un instant après.
-- **Recherche de séries** : TVMaze cherche sur le titre entier ; avec seulement quelques lettres, une série connue peut ne pas ressortir. Tape un peu plus du titre.
+- **Recherche de séries** : TVMaze ne cherche que des mots entiers. Les séries sont donc aussi cherchées sur Wikidata, qui trouve les débuts de titre (« break » → Breaking Bad) ; elles apparaissent alors une ou deux secondes après les premières suggestions.
 - **Traduction** : MyMemory offre 5 000 caractères par jour sans inscription. Les résumés d'épisodes ne sont donc traduits que lorsqu'ils apparaissent à l'écran, et chaque traduction est conservée pour toujours dans Supabase. Pour passer à 50 000 caractères par jour, indique une adresse email dans `MYMEMORY_EMAIL` (`js/config.js`) — elle sera visible publiquement dans le code.
 - **Supabase gratuit** : un projet sans aucune visite pendant une semaine est **mis en pause**. Tes données ne sont pas perdues : rouvre le tableau de bord Supabase et relance le projet avec le bouton proposé.
 - **Hors-ligne** : l'application s'ouvre sans réseau, mais noter ou chercher demande une connexion.
@@ -316,7 +316,7 @@ Le site a été testé dans un vrai navigateur (Chromium piloté automatiquement
 | Domaine | Vérifications |
 |---|---|
 | **Sécurité (RLS)** — 36 contrôles | Deux comptes A et B : B ne voit aucune ligne de A, ne peut ni modifier ni supprimer ses notes (même en visant leurs identifiants), ni écrire en son nom, ni rattacher une note à une œuvre de A ; un visiteur non connecté n'a accès à rien ; notes hors de 1 à 5 refusées ; pas de doublon par (utilisateur, œuvre, saison, épisode). |
-| **Recherche** | « Inception » (film) et « Breaking Bad » (série) trouvés ; films et séries mélangés ; attente de 300 ms ; texte grisé accepté par Tab et → ; flèches, Entrée, Échap ; message propre sans résultat. |
+| **Recherche** | « Inception » (film) et « Breaking Bad » (série) trouvés, y compris dès « break » ; films et séries mélangés ; attente de 300 ms ; texte grisé accepté par Tab et → ; flèches, Entrée, Échap ; message propre sans résultat. |
 | **Fiches et notation** | Film : affiche, année, pays, genres, durée, note, commentaire, date, modification, suppression. Série : 5 saisons / 62 épisodes, note globale, note de saison, note d'épisode, « marquer toute la saison comme vue » sans écraser les notes. Tout est conservé après rechargement. |
 | **Traduction** | Résumés de série et d'épisode traduits ; lien « voir l'original » ; aucune retraduction après rechargement (cache Supabase) ; quota dépassé et panne gérés. |
 | **Collection, liste à voir, statistiques** | Les 4 tris, tous les filtres, recherche sans accents ; passage « à voir » → « vu » ; chiffres des statistiques comparés à un calcul indépendant. |

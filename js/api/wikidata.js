@@ -5,7 +5,11 @@
 //   1. compléter iTunes avec le PAYS DE PRODUCTION (et les genres) d'un film ;
 //   2. servir de source de films à part entière quand iTunes ne trouve rien
 //      (recherche, année, pays, genres, durée) ; l'affiche et le résumé français
-//      viennent alors de Wikipédia.
+//      viennent alors de Wikipédia ;
+//   3. proposer aussi les SÉRIES dès les premières lettres tapées (TVMaze ne
+//      cherche que des mots entiers : « break » ne trouve pas « Breaking Bad »).
+//      Wikidata connaît l'identifiant TVMaze de chaque série : la fiche, les
+//      saisons et les épisodes viennent ensuite de TVMaze, comme d'habitude.
 //
 //  On utilise le point d'accès SPARQL de Wikidata (query.wikidata.org) et
 //  l'API REST de Wikipédia : les deux autorisent les appels depuis un site web.
@@ -19,6 +23,13 @@ const SPARQL = 'https://query.wikidata.org/sparql';
 const FILM_TYPES = [
   'Q11424', 'Q202866', 'Q29168811', 'Q24869', 'Q506240', 'Q93204',
   'Q226730', 'Q20650540', 'Q24862', 'Q17517379',
+].map((q) => `wd:${q}`).join(' ');
+
+// Types Wikidata considérés comme « une série » (série télévisée, série web,
+// mini-série, série d'animation, anime, sitcom, docu-série…).
+const SERIE_TYPES = [
+  'Q5398426', 'Q526877', 'Q1259759', 'Q581714', 'Q63952888', 'Q117467246',
+  'Q15416', 'Q21188110',
 ].map((q) => `wd:${q}`).join(' ');
 
 /** Exécute une requête SPARQL et renvoie des lignes { variable: valeur }. */
@@ -41,17 +52,22 @@ function searchQuery(text, mode) {
          mwapi:search "${quote(text)}"; mwapi:language "fr"; mwapi:limit 50 .
        ?item wikibase:apiOutputItem mwapi:item. ?n wikibase:apiOrdinal true.`
     : `bd:serviceParam wikibase:endpoint "www.wikidata.org"; wikibase:api "Search";
-         mwapi:srsearch "${quote(text)} haswbstatement:P31=Q11424|P31=Q202866|P31=Q29168811|P31=Q24869|P31=Q506240";
+         mwapi:srsearch "${quote(text)} haswbstatement:P31=Q11424|P31=Q202866|P31=Q29168811|P31=Q24869|P31=Q506240|P31=Q5398426";
          mwapi:srlimit 10 .
        ?item wikibase:apiOutputItem mwapi:title. ?n wikibase:apiOrdinal true.`;
   return `SELECT ?item ?itemLabel ?itemDescription ?n (MIN(?date) AS ?d) (MAX(?sl) AS ?links)
-      (SAMPLE(?enName) AS ?en) (SAMPLE(?frName) AS ?fr) WHERE {
+      (SAMPLE(?enName) AS ?en) (SAMPLE(?frName) AS ?fr) (SAMPLE(?kind0) AS ?kind)
+      (SAMPLE(?tvmaze0) AS ?tvmaze) (SAMPLE(?imdb0) AS ?imdb) WHERE {
     hint:Query hint:optimizer "None".
     { SELECT ?item ?n WHERE {
         SERVICE wikibase:mwapi { ${service} }
-        FILTER EXISTS { ?item wdt:P31 ?type. VALUES ?type { ${FILM_TYPES} } }
-      } ORDER BY ?n LIMIT 8 }
-    OPTIONAL { ?item wdt:P577 ?date }
+        FILTER EXISTS { ?item wdt:P31 ?type. VALUES ?type { ${FILM_TYPES} ${SERIE_TYPES} } }
+        FILTER NOT EXISTS { ?item wdt:P136 wd:Q185529 } # pas de films pornographiques
+      } ORDER BY ?n LIMIT 10 }
+    OPTIONAL { ?item wdt:P31 ?serieType. VALUES ?serieType { ${SERIE_TYPES} } BIND("serie" AS ?kind0) }
+    OPTIONAL { ?item wdt:P8600 ?tvmaze0 }
+    OPTIONAL { ?item wdt:P345 ?imdb0 }
+    OPTIONAL { ?item wdt:P577|wdt:P580 ?date }
     OPTIONAL { ?item wikibase:sitelinks ?sl }
     OPTIONAL { ?enPage schema:about ?item; schema:isPartOf <https://en.wikipedia.org/>; schema:name ?enName }
     OPTIONAL { ?frPage schema:about ?item; schema:isPartOf <https://fr.wikipedia.org/>; schema:name ?frName }
@@ -63,10 +79,20 @@ function searchQuery(text, mode) {
 function mapSearchRow(row) {
   const qid = row.item.split('/').pop();
   const year = row.d ? Number(row.d.slice(0, 4)) : null;
+  const isSerie = row.kind === 'serie';
+  // Une série est ouverte directement sur TVMaze (identifiant connu de Wikidata),
+  // ou retrouvée sur TVMaze grâce à son identifiant IMDb.
+  let source = 'wikidata';
+  let sourceId = qid;
+  if (isSerie) {
+    if (/^\d+$/.test(row.tvmaze || '')) { source = 'tvmaze'; sourceId = row.tvmaze; }
+    else if (/^tt\d+$/.test(row.imdb || '')) { source = 'tvmaze-imdb'; sourceId = row.imdb; }
+    else return null; // série inconnue de TVMaze : impossible d'afficher ses épisodes
+  }
   return {
-    source: 'wikidata',
-    source_id: qid,
-    type: 'film',
+    source,
+    source_id: sourceId,
+    type: isSerie ? 'serie' : 'film',
     title: row.itemLabel,
     year: Number.isFinite(year) ? year : null,
     countries: [],
@@ -78,6 +104,7 @@ function mapSearchRow(row) {
     summary_lang: null,
     runtime: null,
     description: row.itemDescription || null, // ex. « film de Christopher Nolan, sorti en 2010 »
+    fromWikidata: true,
     wiki: { en: row.en || null, fr: row.fr || null },
     popularity: Math.min(Number(row.links) || 0, 150) / 1.5, // nombre de Wikipédias qui en parlent
     relevance: 0,
@@ -85,10 +112,12 @@ function mapSearchRow(row) {
 }
 
 /** Recherche de films par titre. */
-export async function searchFilms(query, signal) {
+/** Recherche de films ET de séries par début de titre (puis en plein texte si besoin). */
+export async function searchTitles(query, signal) {
   const keep = (rows) => rows
     .filter((row) => row.itemLabel && !/^Q\d+$/.test(row.itemLabel)) // sans titre lisible → ignoré
     .map(mapSearchRow)
+    .filter(Boolean)
     // fiches Wikidata quasi vides (ni année, ni article Wikipédia) → ignorées
     .filter((film) => film.year || film.wiki.en || film.wiki.fr);
 
@@ -106,6 +135,11 @@ export async function searchFilms(query, signal) {
     }
   }
   return results;
+}
+
+/** Recherche de films uniquement (sert à retrouver le pays d'un film iTunes). */
+export async function searchFilms(query, signal) {
+  return (await searchTitles(query, signal)).filter((item) => item.type === 'film');
 }
 
 // ---------------------------------------------------------------------------

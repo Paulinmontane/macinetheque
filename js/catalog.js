@@ -2,7 +2,8 @@
 //  Catalogue : recherche unifiée (films + séries) et chargement d'une fiche.
 //
 //  Sources, toutes gratuites et sans clé :
-//    - séries : TVMaze
+//    - séries : TVMaze (fiche, saisons, épisodes) ; Wikidata permet en plus de
+//               les trouver dès les premières lettres du titre
 //    - films  : iTunes (boutique française), complété par Wikidata/Wikipédia
 //  Chaque source est indépendante : si l'une ne répond pas, les autres
 //  s'affichent quand même et un message discret le signale.
@@ -16,7 +17,7 @@ import { findItem } from './store.js';
 const SOURCES = [
   { name: 'tvmaze', label: 'séries (TVMaze)', search: tvmaze.searchShows },
   { name: 'itunes', label: 'films (iTunes)', search: itunes.searchMovies },
-  { name: 'wikidata', label: 'films (Wikidata)', search: wikidata.searchFilms },
+  { name: 'wikidata', label: 'films et séries (Wikidata)', search: wikidata.searchTitles },
 ];
 
 // Résultats déjà obtenus pendant cette visite : « source|recherche » → résultats.
@@ -50,7 +51,21 @@ function matchScore(title, query) {
 /** Fusionne, dédoublonne et classe les résultats des différentes sources. */
 function mergeResults(lists, query) {
   const merged = [];
+  const byKey = new Map(); // « source:id » → œuvre déjà retenue
   for (const item of lists.flat()) {
+    // Même série trouvée par TVMaze ET par Wikidata (même identifiant TVMaze) :
+    // on garde une seule suggestion, avec l'affiche TVMaze et la meilleure
+    // popularité des deux (Wikidata la mesure mieux).
+    const key = `${item.source}:${item.source_id}`;
+    const same = byKey.get(key);
+    if (same) {
+      const keep = same.poster_url ? same : item;
+      const other = keep === same ? item : same;
+      keep.popularity = Math.max(keep.popularity || 0, other.popularity || 0);
+      keep.wiki = keep.wiki || other.wiki;
+      if (keep !== same) { merged[merged.indexOf(same)] = keep; byKey.set(key, keep); }
+      continue;
+    }
     // Même film trouvé sur iTunes ET Wikidata : on garde iTunes (affiche HD,
     // résumé français) et on retient l'identifiant Wikidata pour le pays.
     const twin = item.type === 'film' && merged.find((other) => other.type === 'film'
@@ -62,6 +77,7 @@ function mergeResults(lists, query) {
       continue;
     }
     merged.push(item);
+    byKey.set(key, item);
   }
   for (const item of merged) {
     item.score = matchScore(item.title, query) + Math.min(item.popularity || 0, 100) * 0.25
@@ -111,7 +127,7 @@ function summarize(failed) {
 /** Miniature d'une suggestion (les films Wikidata vont la chercher sur Wikipédia). */
 export async function thumbnail(item, signal) {
   if (item.thumb_url || item.poster_url) return item.thumb_url || item.poster_url;
-  if (item.source !== 'wikidata') return null;
+  if (!item.wiki) return null; // seules les œuvres venues de Wikidata ont une page Wikipédia
   const thumb = await wikidata.thumbFor(item, signal).catch(() => null);
   if (thumb) remember({ ...item, thumb_url: thumb });
   return thumb;
@@ -127,6 +143,7 @@ export async function loadItem(source, id, signal) {
   try {
     let item;
     if (source === 'tvmaze') item = await tvmaze.getShow(id, signal);
+    else if (source === 'tvmaze-imdb') item = await tvmaze.getShow(await tvmaze.idFromImdb(id, signal), signal);
     else if (source === 'wikidata') item = await wikidata.getFilm(id, signal);
     else if (source === 'itunes') {
       const cached = recall(source, id);

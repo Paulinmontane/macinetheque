@@ -35,7 +35,10 @@ function mapShow(show, relevance = 0) {
     summary_lang: summary ? 'en' : null, // les résumés TVMaze sont rédigés en anglais
     runtime: show.averageRuntime || show.runtime || null,
     // popularité (0-100) et pertinence, utilisées pour classer les suggestions
-    popularity: (show.weight || 0) * 0.8, // TVMaze note large : on tempère face aux films
+    // Popularité TVMaze (0-100) : elle favorise les séries récentes et reste
+    // peu fiable. On la réduit ; quand Wikidata connaît la série, c'est son
+    // nombre de pages Wikipédia qui sert de mesure (voir catalog.js).
+    popularity: (show.weight || 0) * 0.4,
     relevance,
   };
 }
@@ -43,7 +46,16 @@ function mapShow(show, relevance = 0) {
 /** Recherche de séries par titre. */
 export async function searchShows(query, signal) {
   const data = await fetchJson(`${BASE}/search/shows?q=${encodeURIComponent(query)}`, { signal });
-  return (data || []).map((entry) => mapShow(entry.show, entry.score || 0));
+  return (data || [])
+    .filter((entry) => !(entry.show.genres || []).includes('Adult')) // pas de contenu pour adultes
+    .map((entry) => mapShow(entry.show, entry.score || 0));
+}
+
+/** Retrouve l'identifiant TVMaze d'une série à partir de son identifiant IMDb (tt0903747…). */
+export async function idFromImdb(imdbId, signal) {
+  const show = await fetchJson(`${BASE}/lookup/shows?imdb=${encodeURIComponent(imdbId)}`, { signal });
+  if (!show?.id) throw new Error('Série introuvable sur TVMaze');
+  return String(show.id);
 }
 
 /** Fiche complète d'une série : infos + saisons + épisodes (une seule requête). */

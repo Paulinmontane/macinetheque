@@ -100,7 +100,7 @@ export function createSearch() {
 
     const saved = findItem(item.source, item.source_id);
     const mine = saved && getRating(saved.id)?.rating;
-    const details = [item.year, item.type === 'film' ? item.description : item.countries?.[0]].filter(Boolean).join(' · ');
+    const details = [item.year, item.type === 'film' ? item.description : (item.countries?.[0] || item.description)].filter(Boolean).join(' · ');
     return h('li', {
       class: 'suggestion', id: `suggestion-${index}`, role: 'option', 'aria-selected': 'false',
       onMousedown: (event) => event.preventDefault(), // garde le curseur dans le champ
