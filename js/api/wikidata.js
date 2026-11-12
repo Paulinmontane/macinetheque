@@ -162,7 +162,15 @@ export async function searchTitles(query, signal) {
     // fiches Wikidata quasi vides (ni année, ni article Wikipédia) → ignorées
     .filter((film) => film.year || film.wiki.en || film.wiki.fr);
 
-  let results = keep(await sparql(searchQuery(query, 'prefix'), signal));
+  let rows = await sparql(searchQuery(query, 'prefix'), signal);
+  // Il arrive (rarement) que Wikidata réponde « rien » au lieu d'une erreur
+  // quand son service de recherche est surchargé : on réessaie une fois.
+  if (!rows.length && query.trim().length >= 3) {
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    if (signal?.aborted) throw new DOMException('Annulé', 'AbortError');
+    rows = await sparql(searchQuery(query, 'prefix'), signal);
+  }
+  let results = keep(rows);
   // Peu de résultats par « début de titre » (ex. « amelie poulain ») :
   // on complète avec une recherche en plein texte.
   if (results.length < 3 && query.trim().length >= 4) {
