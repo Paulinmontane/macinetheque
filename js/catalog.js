@@ -34,6 +34,15 @@ export function remember(item) {
 }
 export function recall(source, id) { return known.get(`${source}:${id}`) || null; }
 
+/**
+ * Note de pertinence d'une œuvre par rapport à ce qui est tapé : on compare
+ * au titre français et aux autres titres connus (titre original ou anglais :
+ * taper « Up » doit trouver « Là-haut »).
+ */
+function itemMatch(item, query) {
+  return Math.max(matchScore(item.title, query), ...(item.altTitles || []).map((t) => matchScore(t, query) - 5));
+}
+
 /** Note de pertinence d'un titre par rapport à ce qui est tapé (plus c'est haut, mieux c'est). */
 function matchScore(title, query) {
   const t = normalize(title);
@@ -80,7 +89,9 @@ function mergeResults(lists, query) {
     byKey.set(key, item);
   }
   for (const item of merged) {
-    item.score = matchScore(item.title, query) + Math.min(item.popularity || 0, 100) * 0.25
+    // la notoriété compte beaucoup : « break » doit proposer Breaking Bad avant
+    // des films confidentiels qui s'appellent exactement « Break »
+    item.score = itemMatch(item, query) + Math.min(item.popularity || 0, 100) * 0.4
       + (item.poster_url || item.wiki?.en ? 3 : 0);
     remember(item);
   }
@@ -115,12 +126,16 @@ export async function searchAll(query, signal, onUpdate = () => {}) {
   return { results: mergeResults(lists, q), pending: 0, failed: summarize(failed) };
 }
 
-/** Décrit les pannes de façon utile : les films ont deux sources, une seule suffit. */
+/**
+ * Décrit les pannes de façon utile. Wikidata fournit presque tous les films
+ * (iTunes n'en connaît plus guère) : s'il ne répond pas, la recherche de films
+ * est incomplète, même si iTunes a répondu.
+ */
 function summarize(failed) {
   const names = failed.map((source) => source.name);
   const messages = [];
   if (names.includes('tvmaze')) messages.push('séries');
-  if (names.includes('itunes') && names.includes('wikidata')) messages.push('films');
+  if (names.includes('wikidata')) messages.push('films');
   return messages;
 }
 

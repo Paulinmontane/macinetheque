@@ -53,6 +53,21 @@ function quote(text) {
   return String(text).replace(/[\\"\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
 }
 
+/**
+ * Façons d'écrire un titre exact : tel que tapé, en minuscules, avec une
+ * majuscule au début, avec une majuscule à chaque mot… (les titres de
+ * Wikidata respectent la casse : « heat » ne trouverait pas « Heat »).
+ */
+function titleVariants(text) {
+  const typed = quote(text);
+  const lower = typed.toLocaleLowerCase('fr');
+  const first = lower.charAt(0).toLocaleUpperCase('fr') + lower.slice(1);
+  const words = lower.replace(/(^|[\s\-:'’])(\p{L})/gu, (m, sep, letter) => sep + letter.toLocaleUpperCase('fr'));
+  const variants = new Set([typed, lower, first, words]);
+  if (typed.length <= 5) variants.add(typed.toLocaleUpperCase('fr')); // sigles : « HEAT », « MASH »
+  return [...variants].filter(Boolean);
+}
+
 /** Construit la requête de recherche (par début de titre, ou en plein texte). */
 function searchQuery(text, mode) {
   const service = mode === 'prefix'
@@ -63,18 +78,34 @@ function searchQuery(text, mode) {
          mwapi:srsearch "${quote(text)} haswbstatement:P31=Q11424|P31=Q202866|P31=Q29168811|P31=Q24869|P31=Q506240|P31=Q5398426";
          mwapi:srlimit 10 .
        ?item wikibase:apiOutputItem mwapi:title. ?n wikibase:apiOrdinal true.`;
+  // Recherche par TITRE EXACT (français, anglais ou titre international), en plus
+  // de la recherche par début de titre. Indispensable pour les titres faits d'un
+  // mot courant : « Heat », « Seven », « Ça », « Up »… La recherche par début de
+  // titre renvoie d'abord des dizaines d'autres choses portant ce nom, et le
+  // film n'y figure même pas. Ici, Wikidata répond très vite (index des titres)
+  // et les œuvres les plus connues passent devant (?n négatif).
+  const literals = titleVariants(text).flatMap((v) => ['fr', 'en', 'mul'].map((lang) => `"${v}"@${lang}`)).join(' ');
+  const exact = mode === 'prefix'
+    ? `UNION { VALUES ?label { ${literals} }
+             ?item rdfs:label|skos:altLabel ?label; wikibase:sitelinks ?exactLinks.
+             BIND(-1 - ?exactLinks AS ?n0) }`
+    : '';
   return `SELECT ?item ?itemLabel ?itemDescription ?n (MIN(?date) AS ?d) (MAX(?sl) AS ?links)
       (SAMPLE(?enName) AS ?en) (SAMPLE(?frName) AS ?fr) (SAMPLE(?kind0) AS ?kind)
-      (SAMPLE(?tvmaze0) AS ?tvmaze) (SAMPLE(?imdb0) AS ?imdb) WHERE {
+      (SAMPLE(?tvmaze0) AS ?tvmaze) (SAMPLE(?imdb0) AS ?imdb)
+      (SAMPLE(?enLabel0) AS ?enLabel) (SAMPLE(?mulLabel0) AS ?mulLabel) WHERE {
     hint:Query hint:optimizer "None".
-    { SELECT ?item ?n WHERE {
-        SERVICE wikibase:mwapi { ${service} }
+    { SELECT ?item (MIN(?n0) AS ?n) WHERE {
+        { SERVICE wikibase:mwapi { ${service} } BIND(?n AS ?n0) }
+        ${exact}
         FILTER EXISTS { ?item wdt:P31 ?type. VALUES ?type { ${FILM_TYPES} ${SERIE_TYPES} } }
         FILTER NOT EXISTS { ?item wdt:P136 wd:Q185529 } # pas de films pornographiques
-      } ORDER BY ?n LIMIT 10 }
+      } GROUP BY ?item ORDER BY ?n LIMIT 14 }
     OPTIONAL { ?item wdt:P31 ?serieType. VALUES ?serieType { ${SERIE_TYPES} } BIND("serie" AS ?kind0) }
     OPTIONAL { ?item wdt:P8600 ?tvmaze0 }
     OPTIONAL { ?item wdt:P345 ?imdb0 }
+    OPTIONAL { ?item rdfs:label ?enLabel0. FILTER(LANG(?enLabel0) = "en") }
+    OPTIONAL { ?item rdfs:label ?mulLabel0. FILTER(LANG(?mulLabel0) = "mul") }
     OPTIONAL { ?item wdt:P577|wdt:P580 ?date }
     OPTIONAL { ?item wikibase:sitelinks ?sl }
     OPTIONAL { ?enPage schema:about ?item; schema:isPartOf <https://en.wikipedia.org/>; schema:name ?enName }
@@ -113,6 +144,8 @@ function mapSearchRow(row) {
     runtime: null,
     description: row.itemDescription || null, // ex. « film de Christopher Nolan, sorti en 2010 »
     fromWikidata: true,
+    // autres titres (anglais, international) : « Up » doit trouver « Là-haut »
+    altTitles: [...new Set([row.enLabel, row.mulLabel].filter((t) => t && t !== row.itemLabel))],
     wiki: { en: row.en || null, fr: row.fr || null },
     popularity: Math.min(Number(row.links) || 0, 150) / 1.5, // nombre de Wikipédias qui en parlent
     relevance: 0,
