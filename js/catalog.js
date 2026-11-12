@@ -43,15 +43,21 @@ function itemMatch(item, query) {
   return Math.max(matchScore(item.title, query), ...(item.altTitles || []).map((t) => matchScore(t, query) - 5));
 }
 
+/** Titre réduit à ses lettres et chiffres : « M.A.S.K. » = « MASK », « Spider-Man » = « spiderman ». */
+const compact = (text) => normalize(text).replace(/[^\p{L}\p{N}]+/gu, '');
+
 /** Note de pertinence d'un titre par rapport à ce qui est tapé (plus c'est haut, mieux c'est). */
 function matchScore(title, query) {
   const t = normalize(title);
   const q = normalize(query);
   if (!q) return 0;
-  if (t === q) return 100;
+  if (t === q || (compact(q) && compact(t) === compact(q))) return 100;
+  // article ou nom du studio en tête : « Flash » = « The Flash », « Daredevil » = « Marvel's Daredevil »
+  const bare = t.replace(/^(the|le|la|les|l'|un|une|a|an|marvel's|dc's) ?/, '');
+  if (bare === q || (compact(q) && compact(bare) === compact(q))) return 95;
   if (t.startsWith(q)) return 80;
   // on ignore l'article de début : « matrix » doit trouver « The Matrix »
-  if (t.replace(/^(the|le|la|les|l'|un|une|a|an) ?/, '').startsWith(q)) return 72;
+  if (bare.startsWith(q)) return 72;
   if (t.includes(` ${q}`)) return 55;
   if (t.includes(q)) return 40;
   return 15;
@@ -70,6 +76,9 @@ function mergeResults(lists, query) {
     if (same) {
       const keep = same.poster_url ? same : item;
       const other = keep === same ? item : same;
+      // on garde aussi l'autre titre pour le classement : TVMaze dit « The Flash »
+      // ou « Marvel's Daredevil », Wikidata « Flash » ou « Daredevil »
+      keep.altTitles = [...new Set([...(keep.altTitles || []), other.title, ...(other.altTitles || [])])].filter((t) => t && t !== keep.title);
       keep.popularity = Math.max(keep.popularity || 0, other.popularity || 0);
       keep.wiki = keep.wiki || other.wiki;
       if (keep !== same) { merged[merged.indexOf(same)] = keep; byKey.set(key, keep); }

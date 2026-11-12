@@ -35,7 +35,7 @@ export function mapMovie(track, index = 0) {
     summary_original: null,
     summary_lang: summary ? 'fr' : null,
     runtime: track.trackTimeMillis ? Math.round(track.trackTimeMillis / 60000) : null,
-    popularity: Math.max(0, 60 - index * 6), // iTunes classe déjà par pertinence
+    popularity: Math.max(0, 30 - index * 4), // iTunes classe déjà par pertinence (sans mesurer la notoriété)
     relevance: 0,
   };
 }
