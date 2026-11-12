@@ -481,6 +481,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .form__message { padding: 11px 14px; border-radius: var(--radius-sm); font-size: 0.9rem; border: 1px solid var(--line); background: var(--surface); }
 .form__message--error { color: #ffb4b4; border-color: rgba(240, 122, 122, 0.35); background: rgba(240, 122, 122, 0.08); }
 .form__message--success { color: #b6ecca; border-color: rgba(127, 212, 160, 0.35); background: rgba(127, 212, 160, 0.08); }
+.known-emails { display: grid; gap: 8px; }
+.known-email { display: flex; align-items: center; gap: 6px; }
+.known-email__use { justify-content: flex-start; overflow-wrap: anywhere; text-align: left; }
+.tips { list-style: decimal; padding-left: 20px; display: grid; gap: 10px; color: var(--muted); font-size: 0.92rem; }
+.tips strong { color: var(--text); }
+.auth__links { row-gap: 8px; }
 .setup { list-style: decimal; padding-left: 20px; display: grid; gap: 8px; color: var(--muted); }
 .account__email { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; overflow-wrap: anywhere; }
 .panel > .muted { margin-bottom: 14px; }

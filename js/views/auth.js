@@ -2,7 +2,7 @@
 //  Écrans de compte : connexion, inscription, mot de passe oublié,
 //  choix d'un nouveau mot de passe (après clic sur le lien reçu par email).
 // ============================================================================
-import { h } from '../utils.js';
+import { h, icon } from '../utils.js';
 import { sb, SITE_URL } from '../supabase.js';
 import { brand } from '../ui/logo.js';
 import { passwordField, linkConfirmation } from '../ui/password.js';
@@ -24,12 +24,68 @@ export function authMessage(error) {
   return text || 'Une erreur est survenue. Réessaie.';
 }
 
+// ---------------------------------------------------------------------------
+//  Adresses email déjà utilisées pour se connecter SUR CET APPAREIL.
+//  Elles restent dans ce navigateur (jamais envoyées nulle part) et servent à
+//  pré-remplir la connexion et à aider en cas d'« email oublié ».
+// ---------------------------------------------------------------------------
+const EMAILS_KEY = 'macinetheque:emails';
+
+export function knownEmails() {
+  try { return JSON.parse(localStorage.getItem(EMAILS_KEY) || '[]').filter((e) => typeof e === 'string'); } catch { return []; }
+}
+/** Retient une adresse (la plus récente en premier, 3 au maximum). */
+export function rememberEmail(address) {
+  if (!address) return;
+  try { localStorage.setItem(EMAILS_KEY, JSON.stringify([address, ...knownEmails().filter((e) => e !== address)].slice(0, 3))); } catch { /* navigation privée : tant pis */ }
+}
+function forgetEmail(address) {
+  try { localStorage.setItem(EMAILS_KEY, JSON.stringify(knownEmails().filter((e) => e !== address))); } catch { /* sans gravité */ }
+}
+
+/**
+ * Écran « Email oublié ? ». Le site ne peut pas dire si une adresse possède
+ * un compte (sinon n'importe qui pourrait tester des adresses) : il aide
+ * plutôt à la retrouver.
+ */
+function renderForgotEmail(root, { onPick }) {
+  const list = h('div', { class: 'known-emails' });
+  const paint = () => {
+    const emails = knownEmails();
+    list.replaceChildren(...(emails.length
+      ? [h('p', { class: 'field__label' }, emails.length > 1 ? 'Adresses déjà utilisées sur cet appareil' : 'Adresse déjà utilisée sur cet appareil'),
+        ...emails.map((address) => h('div', { class: 'known-email' },
+          h('button', { class: 'btn btn--block known-email__use', type: 'button', onClick: () => onPick(address) }, address),
+          h('button', { class: 'icon-btn', type: 'button', 'aria-label': `Oublier ${address} sur cet appareil`, title: 'Oublier cette adresse sur cet appareil', onClick: () => { forgetEmail(address); paint(); } }, icon('close', 16))))]
+      : [h('p', { class: 'form__message' }, 'Aucune connexion n’a encore eu lieu sur cet appareil, depuis ce navigateur.')]));
+  };
+  paint();
+  root.replaceChildren(h('main', { class: 'auth' },
+    h('div', { class: 'auth__card' },
+      brand({ big: true }),
+      h('h1', { class: 'auth__title' }, 'Email oublié'),
+      h('p', { class: 'auth__sub' }, 'Ton compte, c’est ton adresse email. Voici comment la retrouver.'),
+      list,
+      h('ol', { class: 'tips' },
+        h('li', {}, h('strong', {}, 'Cherche l’email de confirmation. '), 'Dans chacune de tes boîtes mail (y compris les indésirables), cherche « Supabase » : c’est l’expéditeur du message reçu à l’inscription. La boîte qui l’a reçu est la bonne.'),
+        h('li', {}, h('strong', {}, 'Regarde les mots de passe enregistrés. '), 'Sur iPhone : Réglages → Mots de passe (ou l’app Mots de passe), puis cherche « github.io ». Sur ordinateur : le gestionnaire de mots de passe de ton navigateur.'),
+        h('li', {}, h('strong', {}, 'Demande au propriétaire du site. '), 'Il voit la liste des comptes dans Supabase (Authentication → Users).')),
+      h('p', { class: 'muted' }, 'Ensuite, si tu as aussi oublié ton mot de passe, utilise « Mot de passe oublié ? » avec la bonne adresse.'),
+      h('div', { class: 'auth__links' },
+        h('button', { class: 'link', type: 'button', onClick: () => renderAuth(root, { mode: 'login' }) }, 'Retour à la connexion'),
+        h('button', { class: 'link', type: 'button', onClick: () => renderAuth(root, { mode: 'forgot' }) }, 'Mot de passe oublié ?')))));
+}
+
 /**
  * Affiche l'écran de compte dans `root`.
- *   mode  : 'login' | 'signup' | 'forgot' | 'reset'
+ *   mode  : 'login' | 'signup' | 'forgot' | 'reset' | 'email' (email oublié)
  *   notice: message d'information à afficher en haut (facultatif)
  */
-export function renderAuth(root, { mode = 'login', notice = null, onRecovered = null } = {}) {
+export function renderAuth(root, { mode = 'login', notice = null, onRecovered = null, email: prefill = null } = {}) {
+  if (mode === 'email') {
+    renderForgotEmail(root, { onPick: (address) => renderAuth(root, { mode: 'login', email: address }) });
+    return;
+  }
   const titles = {
     login: ['Connexion', 'Retrouve ta collection de films et de séries.'],
     signup: ['Créer un compte', 'Quelques secondes suffisent pour commencer à noter.'],
@@ -47,6 +103,8 @@ export function renderAuth(root, { mode = 'login', notice = null, onRecovered = 
   };
 
   const email = h('input', { class: 'input', type: 'email', name: 'email', id: 'auth-email', required: true, autocomplete: 'email', placeholder: 'prenom@exemple.fr', inputmode: 'email', autocapitalize: 'off' });
+  // pré-rempli : adresse choisie dans « Email oublié », ou dernière adresse utilisée ici
+  email.value = prefill || (mode === 'login' || mode === 'forgot' ? knownEmails()[0] || '' : '');
   // Mot de passe : icône œil pour l'afficher ; à l'inscription et après un
   // « mot de passe oublié », un second champ de confirmation.
   const needsConfirm = mode === 'signup' || mode === 'reset';
@@ -114,11 +172,12 @@ export function renderAuth(root, { mode = 'login', notice = null, onRecovered = 
     }
   });
 
-  const link = (label, target) => h('button', { class: 'link', type: 'button', onClick: () => renderAuth(root, { mode: target }) }, label);
+  // l'adresse déjà tapée suit quand on passe d'un écran à l'autre
+  const link = (label, target) => h('button', { class: 'link', type: 'button', onClick: () => renderAuth(root, { mode: target, email: email.value.trim() || null }) }, label);
   const links = {
-    login: [link('Créer un compte', 'signup'), link('Mot de passe oublié ?', 'forgot')],
+    login: [link('Créer un compte', 'signup'), link('Mot de passe oublié ?', 'forgot'), link('Email oublié ?', 'email')],
     signup: [link('J’ai déjà un compte', 'login')],
-    forgot: [link('Retour à la connexion', 'login')],
+    forgot: [link('Retour à la connexion', 'login'), link('Email oublié ?', 'email')],
     reset: [],
   }[mode];
 
@@ -130,5 +189,5 @@ export function renderAuth(root, { mode = 'login', notice = null, onRecovered = 
       form,
       links.length ? h('div', { class: 'auth__links' }, links) : null)));
 
-  (mode === 'reset' ? password : email).focus({ preventScroll: true });
+  (mode === 'reset' || (mode === 'login' && email.value) ? password : email).focus({ preventScroll: true });
 }

@@ -242,6 +242,8 @@ Tant que ce script n'est pas collé, le site fonctionne comme avant ; seule la p
 | Modifier / supprimer | Reclique sur les étoiles pour changer la note ; **Retirer la note** enlève seulement les étoiles ; **Tout supprimer** efface note, commentaire et date de ce niveau. |
 | Pour toi | Des films et des séries proposés d'après tes notes, avec la raison (« Parce que tu as aimé *Inception* (même réalisateur) »). Sur chaque carte : **Déjà vu → noter**, **À voir**, **Pas intéressé**. Filtres Films / Séries / genre, bouton **Rafraîchir**. |
 | Mot de passe | L'icône œil affiche ou masque ce que tu tapes. |
+| Mot de passe oublié | Sur l'écran de connexion, **Mot de passe oublié ?** : tu reçois un lien par email pour en choisir un nouveau. |
+| Email oublié | Sur l'écran de connexion, **Email oublié ?** : le site affiche les adresses déjà utilisées pour se connecter sur cet appareil (un appui la reprend) et explique où retrouver la bonne. Ces adresses restent dans le navigateur, elles ne sont envoyées nulle part. En tant que propriétaire du site, tu peux aussi voir tous les comptes dans Supabase → **Authentication** → **Users**. |
 | Résumés | Les résumés en anglais sont traduits automatiquement ; **voir l'original** affiche le texte d'origine. |
 | Sauvegarde | Page **Compte** → **Exporter mes données** télécharge toutes tes notes dans un fichier. |
 

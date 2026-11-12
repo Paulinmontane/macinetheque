@@ -4,7 +4,7 @@
 import { h, icon, toast } from './utils.js';
 import { sb, isConfigured, urlAuth } from './supabase.js';
 import { state, loadAll, reset } from './store.js';
-import { renderAuth, authMessage } from './views/auth.js';
+import { renderAuth, authMessage, rememberEmail } from './views/auth.js';
 import { renderCollection } from './views/collection.js';
 import { renderWatchlist } from './views/watchlist.js';
 import { renderStats } from './views/stats.js';
@@ -141,6 +141,7 @@ async function onSession(session) {
     renderAuth(app, { mode: 'login', notice });
     return;
   }
+  rememberEmail(session.user.email); // pour « Email oublié ? » et la prochaine connexion sur cet appareil
   if (state.user?.id === session.user.id && state.loaded) return; // déjà affiché (jeton renouvelé…)
   if (loadingUser === session.user.id) return; // chargement déjà en cours pour ce compte
   loadingUser = session.user.id;
