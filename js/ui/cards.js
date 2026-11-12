@@ -35,7 +35,7 @@ export function card(item, { badge = null, meta = '', action = null } = {}) {
     h('a', { class: 'card__link', href: itemUrl(item), 'aria-label': `${item.title}${item.year ? ` (${item.year})` : ''}` },
       h('div', { class: 'card__poster' },
         poster(item),
-        badge && h('span', { class: 'card__badge' }, badge),
+        badge && h('span', { class: `card__badge${String(badge).startsWith('≈') ? ' card__badge--indicative' : ''}`, title: String(badge).startsWith('≈') ? 'Moyenne indicative (pas de note directe)' : null }, badge),
         h('span', { class: 'card__type' }, typeLabel(item))),
       h('h3', { class: 'card__title' }, item.title),
       h('p', { class: 'card__meta' }, meta || item.year || ' ')),

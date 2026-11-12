@@ -20,7 +20,8 @@ const SORTS = {
 /** Texte de la pastille de note posée sur l'affiche. */
 export function ratingBadge(entry) {
   if (entry.rating == null) return 'Vu';
-  return `★ ${entry.isAverage ? formatNumber(entry.rating, 1) : entry.rating}`;
+  // sans note directe : moyenne indicative des saisons ou des épisodes (« ≈ »)
+  return entry.isAverage ? `≈ ${formatNumber(entry.rating, 1)}` : `★ ${entry.rating}`;
 }
 
 export function renderCollection(root) {

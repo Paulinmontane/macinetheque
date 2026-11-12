@@ -17,7 +17,7 @@ const GENRES_FR = {
 };
 
 /** Convertit une série TVMaze vers le format commun du site. */
-function mapShow(show, relevance = 0) {
+export function mapShow(show, relevance = 0) {
   const country = show.network?.country || show.webChannel?.country || null;
   const summary = stripHtml(show.summary);
   return {
@@ -39,6 +39,9 @@ function mapShow(show, relevance = 0) {
     // peu fiable. On la réduit ; quand Wikidata connaît la série, c'est son
     // nombre de pages Wikipédia qui sert de mesure (voir catalog.js).
     popularity: (show.weight || 0) * 0.4,
+    // note moyenne des spectateurs de TVMaze (sur 10) et nature de l'émission
+    audienceRating: show.rating?.average ?? null,
+    showType: show.type || null,
     relevance,
   };
 }
@@ -89,4 +92,31 @@ export async function getShow(id, signal) {
     };
   });
   return item;
+}
+
+// ---------------------------------------------------------------------------
+//  Suggestions (page « Pour toi »)
+// ---------------------------------------------------------------------------
+
+/** Fiche courte d'une série (sans les épisodes). */
+export async function getShowLight(id, signal) {
+  return mapShow(await fetchJson(`${BASE}/shows/${encodeURIComponent(id)}`, { signal }));
+}
+
+/** Acteurs principaux d'une série : [{ id: 'tm14245', name: 'Bryan Cranston' }]. */
+export async function getCast(id, signal, max = 6) {
+  const cast = await fetchJson(`${BASE}/shows/${encodeURIComponent(id)}/cast`, { signal });
+  const seen = new Set();
+  return (cast || [])
+    .map((entry) => entry.person)
+    .filter((person) => person?.id && !seen.has(person.id) && seen.add(person.id))
+    .slice(0, max)
+    .map((person) => ({ id: `tm${person.id}`, name: person.name }));
+}
+
+/** Les autres séries d'un acteur (identifiant « tm14245 »), avec leur fiche courte. */
+export async function castCredits(personId, signal) {
+  const id = String(personId).replace(/^tm/, '');
+  const credits = await fetchJson(`${BASE}/people/${encodeURIComponent(id)}/castcredits?embed=show`, { signal });
+  return (credits || []).map((credit) => credit._embedded?.show).filter(Boolean).map((show) => mapShow(show));
 }

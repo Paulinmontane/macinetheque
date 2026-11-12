@@ -2,10 +2,10 @@
 //  Données de l'utilisateur : lecture et écriture dans Supabase.
 //
 //  Au moment de la connexion, on charge une fois toutes SES données (œuvres,
-//  notes, liste à voir) et on les garde en mémoire dans `state`. Chaque
-//  modification est envoyée à Supabase puis reportée dans `state`, ce qui
-//  rend l'interface instantanée. Les règles RLS garantissent côté serveur
-//  qu'on ne reçoit et ne modifie que ses propres lignes.
+//  notes, liste à voir, suggestions refusées) et on les garde en mémoire dans
+//  `state`. Chaque modification est envoyée à Supabase puis reportée dans
+//  `state`, ce qui rend l'interface instantanée. Les règles RLS garantissent
+//  côté serveur qu'on ne reçoit et ne modifie que ses propres lignes.
 // ============================================================================
 import { sb } from './supabase.js';
 import { setRemoteCache } from './api/translate.js';
@@ -16,11 +16,19 @@ export const state = {
   items: new Map(), // id → œuvre enregistrée
   ratings: [], // toutes les notes / visionnages
   watchlist: new Map(), // id de l'œuvre → date d'ajout
+  dismissed: new Map(), // « source:id » → suggestion refusée
+  // La migration V2 (supabase/migration_v2.sql) a-t-elle été appliquée ?
+  // Tant que non, le site fonctionne comme avant ; seule la page « Pour toi » attend.
+  v2: false,
   loaded: false,
 };
 
 // Colonnes de la table « items » qu'on a le droit d'écrire.
 const ITEM_FIELDS = ['source', 'source_id', 'type', 'title', 'year', 'countries', 'genres', 'poster_url', 'summary_fr', 'summary_original', 'runtime'];
+// … et celles ajoutées par la migration V2 (pour les suggestions).
+const ITEM_FIELDS_V2 = ['wikidata_id', 'directors', 'actors', 'credits_at'];
+const LIST_FIELDS = ['countries', 'genres', 'directors', 'actors'];
+const itemFields = () => (state.v2 ? [...ITEM_FIELDS, ...ITEM_FIELDS_V2] : ITEM_FIELDS);
 
 // ---------------------------------------------------------------------------
 //  Abonnements : les pages se redessinent quand les données changent.
@@ -52,12 +60,19 @@ async function fetchAll(table, orderColumn) {
 /** Charge toutes les données de l'utilisateur connecté. */
 export async function loadAll(user) {
   state.user = user;
-  const [items, ratings, watchlist] = await Promise.all([
+  const [items, ratings, watchlist, probe] = await Promise.all([
     fetchAll('items', 'id'), fetchAll('ratings', 'id'), fetchAll('watchlist', 'added_at'),
+    // Petit test : la colonne et la table ajoutées par la migration V2 existent-elles ?
+    Promise.all([
+      sb.from('items').select('credits_at').limit(1),
+      sb.from('dismissed_suggestions').select('*').order('created_at'),
+    ]),
   ]);
   state.items = new Map(items.map((item) => [item.id, item]));
   state.ratings = ratings;
   state.watchlist = new Map(watchlist.map((row) => [row.item_id, row.added_at]));
+  state.v2 = !probe[0].error && !probe[1].error;
+  state.dismissed = new Map((state.v2 ? probe[1].data : []).map((row) => [`${row.source}:${row.source_id}`, row]));
   state.loaded = true;
   emit();
 }
@@ -68,6 +83,8 @@ export function reset() {
   state.items = new Map();
   state.ratings = [];
   state.watchlist = new Map();
+  state.dismissed = new Map();
+  state.v2 = false;
   state.loaded = false;
 }
 
@@ -94,9 +111,47 @@ export function getRating(itemId, season = null, episode = null) {
 
 export function isInWatchlist(itemId) { return !!itemId && state.watchlist.has(itemId); }
 
+const mean = (values) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
+
+/**
+ * Moyenne INDICATIVE des épisodes notés d'une saison (jamais enregistrée
+ * comme note de la saison). Renvoie { value, count } ou null.
+ */
+export function seasonAverage(itemId, season) {
+  const notes = state.ratings
+    .filter((row) => row.item_id === itemId && row.season === season && row.episode != null && row.rating != null)
+    .map((row) => row.rating);
+  return notes.length ? { value: mean(notes), count: notes.length } : null;
+}
+
+/**
+ * Résume les notes d'une œuvre à partir de ses lignes :
+ *   direct   : note donnée à l'œuvre elle-même (ou null)
+ *   value    : la note « la plus précise disponible » — la note directe, sinon
+ *              la moyenne des saisons notées, sinon la moyenne des épisodes notés
+ *   basis    : 'direct' | 'saisons' | 'épisodes' | null
+ *   count    : nombre de notes ayant servi à la moyenne
+ */
+export function summarizeRatings(rows) {
+  const main = rows.find((row) => row.season == null && row.episode == null) || null;
+  const seasons = rows.filter((row) => row.season != null && row.episode == null && row.rating != null).map((row) => row.rating);
+  const episodes = rows.filter((row) => row.episode != null && row.rating != null).map((row) => row.rating);
+  let value = null;
+  let basis = null;
+  let count = 0;
+  if (main?.rating != null) { value = main.rating; basis = 'direct'; count = 1; } else if (seasons.length) { value = mean(seasons); basis = 'saisons'; count = seasons.length; } else if (episodes.length) { value = mean(episodes); basis = 'épisodes'; count = episodes.length; }
+  return { main, direct: main?.rating ?? null, value, basis, count };
+}
+
+/** Moyenne indicative d'une série (à partir de ses saisons, sinon de ses épisodes). */
+export function seriesAverage(itemId) {
+  const summary = summarizeRatings(ratingsOf(itemId).filter((row) => row.season != null));
+  return summary.value != null ? { value: summary.value, basis: summary.basis, count: summary.count } : null;
+}
+
 /**
  * La collection : une entrée par œuvre ayant au moins une note / un visionnage.
- *  - rating : note de l'œuvre ; à défaut, moyenne des notes de ses épisodes/saisons
+ *  - rating : note de l'œuvre ; à défaut, moyenne indicative (saisons, sinon épisodes)
  *  - lastWatched : date de visionnage la plus récente
  */
 export function collection() {
@@ -109,16 +164,15 @@ export function collection() {
   for (const [itemId, rows] of byItem) {
     const item = state.items.get(itemId);
     if (!item) continue;
-    const main = rows.find((row) => row.season == null && row.episode == null) || null;
-    const partial = rows.filter((row) => row !== main && row.rating != null).map((row) => row.rating);
-    const average = partial.length ? partial.reduce((a, b) => a + b, 0) / partial.length : null;
+    const summary = summarizeRatings(rows);
     const dates = rows.map((row) => row.watched_on).filter(Boolean).sort();
     entries.push({
       item,
-      main,
+      main: summary.main,
       rows,
-      rating: main?.rating ?? average, // nombre entre 1 et 5, ou null
-      isAverage: main?.rating == null && average != null,
+      rating: summary.value, // nombre entre 1 et 5, ou null
+      isAverage: summary.basis !== null && summary.basis !== 'direct',
+      basis: summary.basis,
       lastWatched: dates[dates.length - 1] || null,
       episodesSeen: rows.filter((row) => row.episode != null).length,
     });
@@ -147,16 +201,20 @@ async function ensureItemNow(data) {
   const existing = data.id ? state.items.get(data.id) : findItem(data.source, data.source_id);
   if (existing) return existing;
   const row = { user_id: state.user.id };
-  for (const field of ITEM_FIELDS) row[field] = data[field] ?? (field === 'countries' || field === 'genres' ? [] : null);
+  for (const field of itemFields()) {
+    if (LIST_FIELDS.includes(field)) row[field] = Array.isArray(data[field]) ? data[field] : [];
+    else row[field] = data[field] ?? null;
+  }
   const saved = check(await sb.from('items')
     .upsert(row, { onConflict: 'user_id,source,source_id' }).select().single());
   state.items.set(saved.id, saved);
   return saved;
 }
 
-/** Complète une œuvre déjà enregistrée (résumé traduit, pays trouvé après coup…). */
+/** Complète une œuvre déjà enregistrée (résumé traduit, pays, réalisateurs trouvés après coup…). */
 export const updateItem = serial(async (id, patch) => {
-  const clean = Object.fromEntries(Object.entries(patch).filter(([key]) => ITEM_FIELDS.includes(key)));
+  const allowed = itemFields();
+  const clean = Object.fromEntries(Object.entries(patch).filter(([key]) => allowed.includes(key)));
   if (!Object.keys(clean).length || !state.items.has(id)) return null;
   const saved = check(await sb.from('items').update(clean).eq('id', id).select().single());
   state.items.set(saved.id, saved);
@@ -166,7 +224,10 @@ export const updateItem = serial(async (id, patch) => {
 
 /**
  * Crée ou modifie une note. `target` = { season, episode } (vides pour l'œuvre).
- * `patch` peut contenir rating, comment, watched_on, runtime.
+ * `patch` peut contenir rating, comment, watched_on, runtime — chacun est
+ * facultatif et peut valoir null (note retirée, date inconnue…).
+ * Seule la ligne visée est touchée : noter une saison ne crée, ne modifie et
+ * n'efface aucun épisode, et inversement.
  */
 export const saveRating = serial(async (itemData, target, patch) => {
   const item = await ensureItemNow(itemData);
@@ -180,11 +241,12 @@ export const saveRating = serial(async (itemData, target, patch) => {
     episode,
     rating: current?.rating ?? null,
     comment: current?.comment ?? null,
-    watched_on: current ? current.watched_on : todayISO(), // 1re note : vu aujourd'hui par défaut
+    watched_on: current ? current.watched_on : todayISO(), // 1re fois : aujourd'hui, sauf indication contraire
     runtime: current?.runtime ?? null,
     ...patch,
   };
   if (typeof row.comment === 'string') row.comment = row.comment.trim() || null;
+  if (row.watched_on && row.watched_on > todayISO()) throw new Error('Une date de visionnage ne peut pas être dans le futur.');
   const saved = check(await sb.from('ratings')
     .upsert(row, { onConflict: 'user_id,item_id,season,episode' }).select().single());
   state.ratings = state.ratings.filter((r) => r.id !== saved.id && r !== current).concat(saved);
@@ -209,15 +271,18 @@ export const deleteRating = serial(async (itemId, season = null, episode = null)
   emit();
 });
 
-/** Marque comme vus tous les épisodes d'une saison qui ne le sont pas encore. */
-export const markSeasonSeen = serial(async (itemData, seasonNumber, episodes) => {
+/**
+ * Marque comme vus tous les épisodes d'une saison qui ne le sont pas encore :
+ * la date est enregistrée (aujourd'hui par défaut, ou null pour « inconnue »),
+ * sans imposer de note. Les épisodes déjà notés ou déjà vus ne sont pas touchés.
+ */
+export const markSeasonSeen = serial(async (itemData, seasonNumber, episodes, date = todayISO()) => {
   const item = await ensureItemNow(itemData);
-  const today = todayISO();
   const rows = episodes
     .filter((ep) => !getRating(item.id, seasonNumber, ep.number))
     .map((ep) => ({
       user_id: state.user.id, item_id: item.id, season: seasonNumber, episode: ep.number,
-      rating: null, comment: null, watched_on: today, runtime: ep.runtime ?? null,
+      rating: null, comment: null, watched_on: date, runtime: ep.runtime ?? null,
     }));
   if (rows.length) {
     const saved = check(await sb.from('ratings')
@@ -255,6 +320,52 @@ async function cleanupItem(itemId) {
   if (state.watchlist.has(itemId) || state.ratings.some((row) => row.item_id === itemId)) return;
   const { error } = await sb.from('items').delete().eq('id', itemId);
   if (!error) state.items.delete(itemId);
+}
+
+// ---------------------------------------------------------------------------
+//  Suggestions : refus (« pas intéressé ») et cache d'environ 24 h
+// ---------------------------------------------------------------------------
+
+/** Retient qu'une suggestion ne m'intéresse pas : elle ne sera plus proposée. */
+export const dismissSuggestion = serial(async (candidate) => {
+  const row = {
+    user_id: state.user.id,
+    source: candidate.source,
+    source_id: String(candidate.source_id),
+    type: candidate.type,
+    title: candidate.title,
+    // ce qui caractérise l'œuvre refusée : sert de léger signal négatif
+    facets: {
+      genres: candidate.genres || [],
+      countries: candidate.countries || [],
+      year: candidate.year || null,
+      directors: candidate.directors || [],
+      actors: candidate.actors || [],
+    },
+  };
+  // simple ajout : si la suggestion avait déjà été refusée, on n'y touche pas
+  const rows = check(await sb.from('dismissed_suggestions')
+    .upsert(row, { onConflict: 'user_id,source,source_id', ignoreDuplicates: true }).select());
+  const saved = rows[0] || row;
+  state.dismissed.set(`${saved.source}:${saved.source_id}`, saved);
+  emit();
+  return saved;
+});
+
+/** Lit les suggestions gardées en cache (ou null). */
+export async function readSuggestionsCache() {
+  const { data, error } = await sb.from('suggestions_cache').select('*').maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/** Enregistre les suggestions calculées (une seule ligne par utilisateur). */
+export async function writeSuggestionsCache(seedsKey, payload) {
+  const { error } = await sb.from('suggestions_cache').upsert(
+    { user_id: state.user.id, seeds_key: seedsKey, payload, generated_at: new Date().toISOString() },
+    { onConflict: 'user_id' },
+  );
+  if (error) throw new Error(error.message);
 }
 
 // ---------------------------------------------------------------------------

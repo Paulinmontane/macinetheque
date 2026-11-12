@@ -1,4 +1,4 @@
-# ★ MaCinéthèque
+# MaCinéthèque
 
 Un site personnel pour **noter les films et les séries que tu regardes** : recherche avec autocomplétion, notes de 1 à 5 étoiles (films, séries, saisons, épisodes), commentaires, dates de visionnage, liste « à voir », statistiques. Il fonctionne sur ordinateur comme sur iPhone, où il s'installe comme une application.
 
@@ -17,6 +17,8 @@ Un site personnel pour **noter les films et les séries que tu regardes** : rech
 5. [Indiquer l'adresse du site à Supabase](#étape-5--indiquer-ladresse-du-site-à-supabase-liens-des-emails)
 6. [Créer ton compte sur le site](#étape-6--créer-ton-compte-sur-le-site)
 7. [Installer le site sur l'iPhone](#étape-7--installer-le-site-sur-lécran-daccueil-de-liphone)
+
+Tu avais déjà installé la première version ? Va directement à [Passer à la version 2](#passer-à-la-version-2).
 
 Puis : [utilisation](#utilisation), [modifier le site](#modifier-le-site-plus-tard), [dépannage](#dépannage), [comment c'est fait](#comment-cest-fait), [limites à connaître](#limites-à-connaître), [tests réalisés](#tests-réalisés).
 
@@ -197,12 +199,32 @@ Les comptes sont alors créés sans email de confirmation. En contrepartie, le �
 2. Touche le bouton **Partager** (le carré avec une flèche vers le haut).
 3. Fais défiler et touche **Sur l'écran d'accueil**.
 4. Touche **Ajouter**.
-5. L'icône ★ **MaCinéthèque** apparaît sur l'écran d'accueil. Ouvre le site depuis cette icône : il s'affiche en plein écran, comme une application, avec la barre de navigation en bas.
+5. L'icône **MaCinéthèque** (une petite caméra ambre) apparaît sur l'écran d'accueil. Ouvre le site depuis cette icône : il s'affiche en plein écran, comme une application, avec la barre de navigation en bas.
 6. Connecte-toi une fois : tu restes connecté ensuite.
 
 *Sur Android (Chrome) : menu ⋮ → **Ajouter à l'écran d'accueil** / **Installer l'application**. Sur ordinateur (Chrome, Edge) : icône d'installation dans la barre d'adresse.*
 
 ---
+
+## Passer à la version 2
+
+La version 2 ajoute la page **Pour toi** (suggestions), la notation libre des séries (série, saison ou épisode, au choix), le sélecteur de date, la confirmation en grand et le nouveau logo.
+
+**Une seule chose à faire : coller un script SQL dans Supabase.** Il n'efface et ne modifie aucune de tes notes.
+
+1. Ouvre ce fichier : [`supabase/migration_v2.sql`](supabase/migration_v2.sql). Sur GitHub, clique sur l'icône **Copy raw file** (deux petits carrés, en haut à droite du code).
+2. Dans Supabase, menu de gauche : **SQL Editor** → **New query**.
+3. Colle (Ctrl+V), puis clique sur **Run**.
+4. Si un avertissement apparaît (« destructive operation »), confirme : le script contient des lignes `drop … if exists` pour pouvoir être relancé sans erreur.
+5. Tu dois lire **Success. No rows returned**.
+6. Recharge le site. L'onglet **Pour toi** affiche maintenant des suggestions.
+
+Tant que ce script n'est pas collé, le site fonctionne comme avant ; seule la page **Pour toi** affiche un message d'attente. Tu peux relancer le script autant de fois que tu veux.
+
+**Pour vérifier que tout va bien :**
+- **Ma collection** montre toujours toutes tes œuvres, avec les mêmes notes.
+- Dans Supabase → **Table Editor**, il y a deux nouvelles tables : `dismissed_suggestions` et `suggestions_cache`.
+- La nouvelle icône (caméra) n'apparaît pas sur l'iPhone ? Supprime l'ancienne icône de l'écran d'accueil et ajoute le site à nouveau (étape 7).
 
 ## Utilisation
 
@@ -211,11 +233,15 @@ Les comptes sont alors créés sans email de confirmation. En contrepartie, le �
 | Chercher une œuvre | Tape au moins 2 lettres dans la barre de recherche : films et séries sont proposés ensemble, avec un badge **Film** / **Série**. |
 | Compléter le titre | Le texte grisé propose le titre le plus probable : **Tab** ou **→** pour l'accepter (sur téléphone : touche la petite flèche). |
 | Naviguer au clavier | **↑ ↓** pour parcourir, **Entrée** pour ouvrir, **Échap** pour fermer. **Entrée** sans sélection affiche tous les résultats. |
-| Noter | Clique sur les étoiles. Date de visionnage et commentaire s'enregistrent tout seuls. |
-| Série | Note globale en haut ; déplie une saison pour noter la saison et chaque épisode. La pastille ronde marque un épisode comme vu ; l'icône bulle ouvre commentaire et date. |
-| Toute une saison vue | Bouton **Marquer toute la saison comme vue** (ne touche pas aux notes déjà données). |
+| Noter | Clique sur les étoiles : un grand écran « Note enregistrée » confirme. Note, commentaire et date sont tous facultatifs. |
+| Série | Note ce que tu veux, sans obligation : la série entière, une saison entière, quelques épisodes, ou tout à la fois. Chaque note est indépendante. La pastille ronde marque un épisode comme vu ; l'icône bulle ouvre commentaire et date. |
+| Moyenne indicative | Une saison sans note mais avec des épisodes notés affiche en gris la moyenne de ces épisodes (« moy. épisodes 4,0 »). Même principe pour la série à partir des saisons. Ce n'est jamais enregistré comme une note. |
+| Date de visionnage | Rien à taper : **Aujourd'hui** (par défaut), **Hier**, **Choisir une date…** (calendrier) ou **Date inconnue**. Les dates futures sont refusées. |
+| Toute une saison vue | Bouton **Marquer toute la saison comme vue** : enregistre la date choisie pour chaque épisode, sans imposer de note, sans toucher aux notes déjà données. |
 | Liste à voir | Bouton **Ajouter à ma liste à voir** sur une fiche. Dans la page **À voir**, **J'ai vu** fait passer l'œuvre dans la collection et ouvre sa fiche pour la noter. |
-| Modifier / supprimer | Reclique sur les étoiles pour changer la note ; **Supprimer ma note** pour tout effacer. |
+| Modifier / supprimer | Reclique sur les étoiles pour changer la note ; **Retirer la note** enlève seulement les étoiles ; **Tout supprimer** efface note, commentaire et date de ce niveau. |
+| Pour toi | Des films et des séries proposés d'après tes notes, avec la raison (« Parce que tu as aimé *Inception* (même réalisateur) »). Sur chaque carte : **Déjà vu → noter**, **À voir**, **Pas intéressé**. Filtres Films / Séries / genre, bouton **Rafraîchir**. |
+| Mot de passe | L'icône œil affiche ou masque ce que tu tapes. |
 | Résumés | Les résumés en anglais sont traduits automatiquement ; **voir l'original** affiche le texte d'origine. |
 | Sauvegarde | Page **Compte** → **Exporter mes données** télécharge toutes tes notes dans un fichier. |
 
@@ -249,7 +275,9 @@ macinetheque/
 ├── css/style.css           toute la mise en forme (thème sombre, responsive)
 ├── icons/                  icônes (favicon, iPhone, Android)
 ├── lib/supabase.js         bibliothèque officielle Supabase (copie locale, v2.119.0)
-├── supabase/schema.sql     ← à coller dans Supabase (tables + règles RLS)
+├── supabase/
+│   ├── schema.sql          ← installation neuve : tout le schéma (tables + règles RLS)
+│   └── migration_v2.sql    ← mise à jour d'une base créée avec la première version
 └── js/
     ├── config.js           ← LE fichier à remplir (URL + clé Supabase)
     ├── app.js              démarrage, connexion, navigation entre les pages
@@ -265,12 +293,21 @@ macinetheque/
     ├── ui/
     │   ├── search.js       barre de recherche et autocomplétion
     │   ├── stars.js        étoiles de notation
+    │   ├── datepicker.js   sélecteur de date (Aujourd'hui, Hier, calendrier, Date inconnue)
+    │   ├── confirm.js      confirmation d'enregistrement en grand (et écran d'échec)
+    │   ├── password.js     champ mot de passe avec œil + vérification de la confirmation
+    │   ├── quickrate.js    fenêtre « Déjà vu → noter » de la page Pour toi
+    │   ├── logo.js         le logo (caméra à bobines)
     │   ├── cards.js        affiches, grilles, squelettes, états vides
     │   └── charts.js       graphiques SVG des statistiques
+    ├── reco/
+    │   ├── profile.js      profil de goûts, score et raison d'une suggestion, variété
+    │   └── engine.js       recherche des œuvres candidates, cache de 24 h, classement
     └── views/
         ├── auth.js         connexion, inscription, mot de passe oublié
         ├── collection.js   ma collection (tri, filtres)
         ├── watchlist.js    liste à voir
+        ├── foryou.js       page « Pour toi » (suggestions)
         ├── item.js         fiche d'une œuvre et notation
         ├── results.js      page de résultats de recherche
         ├── stats.js        statistiques
@@ -281,12 +318,25 @@ macinetheque/
 
 | Table | Contenu | Qui y a accès |
 |---|---|---|
-| `items` | Les œuvres enregistrées : source, identifiant, type, titre, année, pays, genres, affiche, résumés, durée | Uniquement son propriétaire |
-| `ratings` | Notes (1 à 5), commentaires, dates ; `season` et `episode` vides = l'œuvre entière. Une seule ligne par (utilisateur, œuvre, saison, épisode) | Uniquement son propriétaire |
+| `items` | Les œuvres enregistrées : source, identifiant, type, titre, année, pays, genres, affiche, résumés, durée ; depuis la V2 : identifiant Wikidata, réalisateurs, acteurs principaux | Uniquement son propriétaire |
+| `ratings` | Notes (1 à 5), commentaires, dates — tous facultatifs ; `season` et `episode` vides = l'œuvre entière, `season` seule = une saison. Une seule ligne par (utilisateur, œuvre, saison, épisode). Dates futures refusées | Uniquement son propriétaire |
 | `watchlist` | La liste à voir | Uniquement son propriétaire |
+| `dismissed_suggestions` | Les suggestions écartées avec « Pas intéressé » (V2) | Uniquement son propriétaire |
+| `suggestions_cache` | Les suggestions calculées, gardées environ 24 h (V2) | Uniquement son propriétaire |
 | `translations_cache` | Empreinte du texte original → traduction française | Tout utilisateur connecté : lecture et ajout seulement (aucune donnée personnelle) |
 
-La **Row Level Security** est activée sur les 4 tables ; un visiteur non connecté n'a accès à rien.
+La **Row Level Security** est activée sur les 6 tables ; un visiteur non connecté n'a accès à rien.
+
+### Comment sont calculées les suggestions
+
+1. **Profil de goûts**, recalculé à chaque note : 5★ = +2, 4★ = +1, 3★ = 0, 2★ = −1, 1★ = −2. Pour une série, c'est la note la plus précise qui compte (la série, sinon la moyenne des saisons, sinon celle des épisodes). Ces points vont aux genres, réalisateurs, acteurs principaux, pays et décennies de l'œuvre. La liste « à voir » compte pour +0,5, un « Pas intéressé » pour −0,5.
+2. **Œuvres candidates**, sans clé API : pour les films, Wikidata (films des mêmes réalisateurs, des mêmes acteurs, des mêmes genres, en écartant ceux dont presque aucune Wikipédia ne parle) ; pour les séries, TVMaze (les autres séries bien notées des acteurs de tes séries préférées) et les séries les plus connues.
+3. **Score** = somme des points correspondants + un bonus de popularité. La raison affichée est le point commun qui pèse le plus. Deux films du même réalisateur ne se suivent jamais plus de deux fois.
+4. Ce que tu as déjà noté, mis « à voir » ou refusé n'est jamais proposé.
+5. Avec moins de 3 œuvres notées, la page propose des œuvres populaires et t'invite à noter davantage.
+6. Le résultat est gardé 24 h dans Supabase (ouverture instantanée) et recalculé dès que tes goûts principaux changent, ou avec **Rafraîchir**.
+
+Le site complète tout seul, une fois, les œuvres déjà enregistrées avec leurs réalisateurs et acteurs (à la première ouverture de **Pour toi**).
 
 ### Sources de données et appels depuis le navigateur (CORS)
 
@@ -294,7 +344,7 @@ Toutes les API utilisées autorisent les appels depuis un site web : **aucun ser
 
 | Source | Sert à | Clé | Appelable du navigateur |
 |---|---|---|---|
-| TVMaze `api.tvmaze.com` | Séries, saisons, épisodes | Aucune | ✅ vérifié |
+| TVMaze `api.tvmaze.com` | Séries, saisons, épisodes ; acteurs et leurs autres séries (suggestions) | Aucune | ✅ vérifié |
 | iTunes Search `itunes.apple.com` | Films : titre, affiche (600×600), résumé français | Aucune | ✅ vérifié |
 | Wikidata `query.wikidata.org` | Films : recherche, année, pays de production, genres, durée. Séries : recherche par début de titre | Aucune | ✅ vérifié |
 | Wikipédia `fr.` / `en.wikipedia.org` | Films : affiche et résumé d'introduction | Aucune | ✅ vérifié |
@@ -306,6 +356,8 @@ Toutes les API utilisées autorisent les appels depuis un site web : **aucun ser
 - **Recherche de films** : elle passe par Wikidata, qui met d'une à quelques secondes à répondre. Les séries (TVMaze) s'affichent tout de suite, les films arrivent un instant après.
 - **Recherche de séries** : TVMaze ne cherche que des mots entiers. Les séries sont donc aussi cherchées sur Wikidata, qui trouve les débuts de titre (« break » → Breaking Bad) ; elles apparaissent alors une ou deux secondes après les premières suggestions.
 - **Traduction** : MyMemory offre 5 000 caractères par jour sans inscription. Les résumés d'épisodes ne sont donc traduits que lorsqu'ils apparaissent à l'écran, et chaque traduction est conservée pour toujours dans Supabase. Pour passer à 50 000 caractères par jour, indique une adresse email dans `MYMEMORY_EMAIL` (`js/config.js`) — elle sera visible publiquement dans le code.
+- **Suggestions** : le premier calcul prend 15 à 25 secondes (les films s'affichent d'abord, les séries ensuite) ; les ouvertures suivantes sont instantanées pendant 24 h. Les « acteurs principaux » d'un film sont ses acteurs les plus connus, faute d'ordre d'affiche dans Wikidata. Les acteurs de films et de séries ne sont pas reliés entre eux : aimer un acteur dans une série ne fait pas encore remonter ses films.
+- **Affiches des suggestions de films** : elles viennent de Wikipédia, une par une. Si Wikipédia limite les demandes, certaines apparaissent avec quelques secondes de retard, ou à la visite suivante.
 - **Supabase gratuit** : un projet sans aucune visite pendant une semaine est **mis en pause**. Tes données ne sont pas perdues : rouvre le tableau de bord Supabase et relance le projet avec le bouton proposé.
 - **Hors-ligne** : l'application s'ouvre sans réseau, mais noter ou chercher demande une connexion.
 
@@ -315,7 +367,7 @@ Le site a été testé dans un vrai navigateur (Chromium piloté automatiquement
 
 | Domaine | Vérifications |
 |---|---|
-| **Sécurité (RLS)** — 36 contrôles | Deux comptes A et B : B ne voit aucune ligne de A, ne peut ni modifier ni supprimer ses notes (même en visant leurs identifiants), ni écrire en son nom, ni rattacher une note à une œuvre de A ; un visiteur non connecté n'a accès à rien ; notes hors de 1 à 5 refusées ; pas de doublon par (utilisateur, œuvre, saison, épisode). |
+| **Sécurité (RLS)** — 50 contrôles | Deux comptes A et B : B ne voit aucune ligne de A, ne peut ni modifier ni supprimer ses notes (même en visant leurs identifiants), ni écrire en son nom, ni rattacher une note à une œuvre de A ; un visiteur non connecté n'a accès à rien ; notes hors de 1 à 5 refusées ; pas de doublon par (utilisateur, œuvre, saison, épisode). |
 | **Recherche** | « Inception » (film) et « Breaking Bad » (série) trouvés, y compris dès « break » ; films et séries mélangés ; attente de 300 ms ; texte grisé accepté par Tab et → ; flèches, Entrée, Échap ; message propre sans résultat. |
 | **Fiches et notation** | Film : affiche, année, pays, genres, durée, note, commentaire, date, modification, suppression. Série : 5 saisons / 62 épisodes, note globale, note de saison, note d'épisode, « marquer toute la saison comme vue » sans écraser les notes. Tout est conservé après rechargement. |
 | **Traduction** | Résumés de série et d'épisode traduits ; lien « voir l'original » ; aucune retraduction après rechargement (cache Supabase) ; quota dépassé et panne gérés. |
@@ -323,5 +375,11 @@ Le site a été testé dans un vrai navigateur (Chromium piloté automatiquement
 | **Comptes** | Inscription avec email de confirmation, connexion, déconnexion, session conservée, mot de passe oublié de bout en bout, lien expiré, pages inaccessibles sans connexion. |
 | **Robustesse** | Chaque source coupée tour à tour : messages clairs, aucune erreur, la collection reste consultable. |
 | **Mobile et PWA** | Format iPhone : aucun débordement, barre de navigation en bas ; manifest, icônes, service worker, ouverture hors-ligne. |
+| **V2 — notation des séries** | Breaking Bad : saison 1 notée seule (aucun épisode créé) ; 3 épisodes de la saison 2 notés sans la saison ; série notée seule ; moyennes indicatives (« moy. épisodes 4,0 ») jamais enregistrées ; modifier, retirer ou supprimer un niveau ne touche pas aux autres ; « marquer toute la saison comme vue » avec date inconnue : 13 épisodes vus, aucune note. |
+| **V2 — sélecteur de date** | Pré-rempli à la date du jour (heure de Paris) ; « Hier », « Choisir une date… », « Date inconnue » ; date future refusée par le site **et** par la base. |
+| **V2 — confirmation en grand** | Coche, titre, « Saison 1 » / « S02E01 », étoiles ; disparition seule (~1,2 s) ou d'un clic ; écran d'échec avec « Réessayer » sans perte du commentaire ; version simple si « moins d'animations » est activé. |
+| **V2 — suggestions** | Compte neuf : œuvres populaires + invitation à noter. Après 5 notes : films de Nolan en tête (« Parce que tu as aimé *Inception* (même réalisateur) »), jamais plus de deux à la suite, séries via les acteurs de Breaking Bad, rien de déjà noté, Cameron écarté après un 2★ ; cache relu sans aucune requête ; filtres ; « Déjà vu → noter » (film, et épisode précis d'une série), « À voir », « Pas intéressé » ; rien ne revient après rechargement. |
+| **V2 — mots de passe et logo** | Œil (focus et curseur conservés), confirmation en direct, bouton bloqué tant que les deux diffèrent ; logo caméra partout, icônes 32 / 180 / 192 / 512, service worker en version 2. |
+| **V2 — migration** | Script appliqué deux fois sur une base remplie : toutes les données identiques avant / après ; le site fonctionne aussi tant que le script n'est pas collé. |
 
 Non testé ici, faute de pouvoir créer des comptes à ta place : le projet Supabase **en ligne**, la publication **GitHub Pages** et l'installation sur un **vrai iPhone**.

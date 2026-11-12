@@ -11,7 +11,9 @@ import { renderStats } from './views/stats.js';
 import { renderItem } from './views/item.js';
 import { renderResults } from './views/results.js';
 import { renderAccount } from './views/account.js';
+import { renderForYou } from './views/foryou.js';
 import { createSearch } from './ui/search.js';
+import { brand } from './ui/logo.js';
 
 const app = document.getElementById('app');
 let view = null; // zone centrale où s'affichent les pages
@@ -23,6 +25,7 @@ const scrollMemory = new Map(); // position de défilement de chaque page-liste
 const NAV = [
   { href: '#/', label: 'Collection', icon: 'grid', match: ['', 'collection'] },
   { href: '#/a-voir', label: 'À voir', icon: 'bookmark', match: ['a-voir'] },
+  { href: '#/pour-toi', label: 'Pour toi', icon: 'sparkles', match: ['pour-toi'] },
   { href: '#/stats', label: 'Stats', icon: 'chart', match: ['stats'] },
   { href: '#/compte', label: 'Compte', icon: 'user', match: ['compte'] },
 ];
@@ -32,14 +35,14 @@ const NAV = [
 // ---------------------------------------------------------------------------
 function showLoading(text = 'Chargement…') {
   app.replaceChildren(h('div', { class: 'splash' },
-    h('div', { class: 'brand brand--big' }, h('span', { class: 'brand__star' }, '★'), 'MaCinéthèque'),
+    brand({ big: true }),
     h('p', { class: 'splash__text' }, h('span', { class: 'spinner' }), text)));
 }
 
 /** js/config.js n'a pas encore été rempli : on explique quoi faire. */
 function showSetup() {
   app.replaceChildren(h('main', { class: 'auth' }, h('div', { class: 'auth__card' },
-    h('div', { class: 'brand brand--big' }, h('span', { class: 'brand__star' }, '★'), 'MaCinéthèque'),
+    brand({ big: true }),
     h('h1', { class: 'auth__title' }, 'Dernière étape : la configuration'),
     h('p', { class: 'auth__sub' }, 'Le site n’est pas encore relié à ta base de données Supabase.'),
     h('ol', { class: 'setup' },
@@ -71,7 +74,7 @@ function showShell() {
   app.replaceChildren(
     h('header', { class: 'topbar' },
       h('div', { class: 'topbar__inner' },
-        h('a', { class: 'brand', href: '#/', 'aria-label': 'MaCinéthèque — accueil' }, h('span', { class: 'brand__star' }, '★'), h('span', { class: 'brand__name' }, 'MaCinéthèque')),
+        brand({ href: '#/' }),
         createSearch(),
         h('nav', { class: 'nav nav--top', 'aria-label': 'Navigation principale' }, NAV.map(link)))),
     view,
@@ -81,7 +84,8 @@ function showShell() {
 // ---------------------------------------------------------------------------
 //  Navigation : l'adresse après le « # » indique la page à afficher
 //    #/                     → collection        #/a-voir → liste à voir
-//    #/stats                → statistiques      #/compte → compte
+//    #/pour-toi             → suggestions       #/compte → compte
+//    #/stats                → statistiques
 //    #/recherche/<texte>    → résultats
 //    #/oeuvre/<source>/<id> → fiche d'une œuvre
 // ---------------------------------------------------------------------------
@@ -99,6 +103,7 @@ function route() {
   currentHash = location.hash;
 
   if (page === 'a-voir') renderWatchlist(view);
+  else if (page === 'pour-toi') leaveView = renderForYou(view);
   else if (page === 'stats') renderStats(view);
   else if (page === 'compte') renderAccount(view);
   else if (page === 'recherche' && parts[1]) leaveView = renderResults(view, parts.slice(1).join('/'));

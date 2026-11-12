@@ -7,21 +7,27 @@ import { sb } from '../supabase.js';
 import { state, collection } from '../store.js';
 import { pageHeader } from '../ui/cards.js';
 import { authMessage } from './auth.js';
+import { passwordField, linkConfirmation } from '../ui/password.js';
 
 export function renderAccount(root) {
   const count = collection().length;
 
   // ---- changement de mot de passe
-  const password = h('input', { class: 'input', type: 'password', minlength: 6, required: true, autocomplete: 'new-password', placeholder: 'Nouveau mot de passe (6 caractères min.)', 'aria-label': 'Nouveau mot de passe' });
+  const pass = passwordField({ id: 'account-password', label: 'Nouveau mot de passe', autocomplete: 'new-password', placeholder: '6 caractères minimum' });
+  const confirm = passwordField({ id: 'account-password-confirm', label: 'Confirmer le mot de passe', autocomplete: 'new-password', placeholder: 'Le même mot de passe' });
+  const password = pass.input;
   const save = h('button', { class: 'btn', type: 'submit' }, 'Changer le mot de passe');
-  const form = h('form', { class: 'form form--inline' }, password, save);
+  const passwordsMatch = linkConfirmation({ password, confirm: confirm.input, hint: confirm.hint, submit: save });
+  const form = h('form', { class: 'form form--narrow' }, pass.field, confirm.field, h('div', {}, save));
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (!passwordsMatch()) return;
     save.disabled = true;
     const { error } = await sb.auth.updateUser({ password: password.value });
-    save.disabled = false;
-    if (error) { toast(authMessage(error), 'error'); return; }
+    if (error) { passwordsMatch(); toast(authMessage(error), 'error'); return; }
     password.value = '';
+    confirm.input.value = '';
+    passwordsMatch();
     toast('Mot de passe modifié');
   });
 

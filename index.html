@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>MaCinéthèque</title>
   <meta name="description" content="Ma cinémathèque personnelle : je note les films et les séries que je regarde.">
-  <meta name="theme-color" content="#0b0b0d">
+  <meta name="theme-color" content="#141416">
   <meta name="color-scheme" content="dark">
 
   <!-- Application installable (PWA) : Android / ordinateur… -->
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
   <!-- …et iPhone / iPad (écran d'accueil) -->
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -30,7 +31,14 @@
   <!-- Tout le site est dessiné ici par js/app.js -->
   <div id="app">
     <div class="splash">
-      <div class="brand brand--big"><span class="brand__star">★</span>MaCinéthèque</div>
+      <div class="brand brand--big">
+        <svg class="logo" viewBox="0 0 112 96" width="75" height="64" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="27" cy="22" r="14"/><circle cx="61" cy="22" r="14"/>
+          <circle cx="27" cy="22" r="3" fill="currentColor" stroke="none"/><circle cx="61" cy="22" r="3" fill="currentColor" stroke="none"/>
+          <rect x="7" y="44" width="72" height="44" rx="6"/><polygon points="79,56 105,44 105,88 79,76"/>
+        </svg>
+        <span class="brand__name">MaCinéthèque</span>
+      </div>
     </div>
   </div>
 

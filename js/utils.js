@@ -55,6 +55,12 @@ const ICONS = {
   back: 'M15 6l-6 6 6 6',
   plus: 'M12 5v14M5 12h14',
   close: 'M6 6l12 12M18 6L6 18',
+  eye: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  'eye-off': 'M3 3l18 18M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.5 6.6C3.6 8.5 2 12 2 12s3.6 7 10 7c1.7 0 3.2-.5 4.5-1.2M9.9 9.9a3 3 0 0 0 4.2 4.2',
+  sparkles: 'M10 3l1.8 5.2L17 10l-5.2 1.8L10 17l-1.8-5.2L3 10l5.2-1.8zM18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z',
+  refresh: 'M20 11a8 8 0 0 0-14.3-4.6L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.6L20 16M20 20v-4h-4',
+  calendar: 'M5 5h14v15H5zM5 10h14M9 3v4M15 3v4',
+  'thumb-down': 'M8 14V4h9.5a2 2 0 0 1 2 1.6l1.2 6a2 2 0 0 1-2 2.4H14l.7 3.6a2 2 0 0 1-3.6 1.5zM8 14H4V4h4',
 };
 export function icon(name, size = 20) {
   return svg('svg', {
@@ -140,18 +146,27 @@ export function isAbort(error) {
   return error?.name === 'AbortError';
 }
 
-/** Date du jour au format AAAA-MM-JJ (heure locale). */
+/** Date du jour au format AAAA-MM-JJ, à l'heure de Paris (quel que soit le réglage de l'appareil). */
 export function todayISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // le format « en-CA » s'écrit justement AAAA-MM-JJ
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
 
-/** « 2024-03-09 » → « 9 mars 2024 ». */
-export function formatDate(iso) {
+/** Décale une date AAAA-MM-JJ d'un nombre de jours (négatif = dans le passé). */
+export function shiftDate(iso, days) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/** La veille, à l'heure de Paris. */
+export function yesterdayISO() { return shiftDate(todayISO(), -1); }
+
+/** « 2024-03-09 » → « 9 mars 2024 » (short : mois abrégé, « 9 oct. 2024 »). */
+export function formatDate(iso, { short = false } = {}) {
   if (!iso) return '';
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
   if (!y || !m || !d) return '';
-  return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: short ? 'short' : 'long', year: 'numeric' })
     .format(new Date(y, m - 1, d));
 }
 

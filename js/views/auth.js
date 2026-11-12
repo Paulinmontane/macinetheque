@@ -4,6 +4,8 @@
 // ============================================================================
 import { h } from '../utils.js';
 import { sb, SITE_URL } from '../supabase.js';
+import { brand } from '../ui/logo.js';
+import { passwordField, linkConfirmation } from '../ui/password.js';
 
 /** Traduit les messages d'erreur de Supabase (en anglais) en français clair. */
 export function authMessage(error) {
@@ -45,22 +47,35 @@ export function renderAuth(root, { mode = 'login', notice = null, onRecovered = 
   };
 
   const email = h('input', { class: 'input', type: 'email', name: 'email', id: 'auth-email', required: true, autocomplete: 'email', placeholder: 'prenom@exemple.fr', inputmode: 'email', autocapitalize: 'off' });
-  const password = h('input', {
-    class: 'input', type: 'password', name: 'password', id: 'auth-password', required: true, minlength: 6,
-    autocomplete: mode === 'login' ? 'current-password' : 'new-password', placeholder: mode === 'login' ? 'Ton mot de passe' : '6 caractères minimum',
+  // Mot de passe : icône œil pour l'afficher ; à l'inscription et après un
+  // « mot de passe oublié », un second champ de confirmation.
+  const needsConfirm = mode === 'signup' || mode === 'reset';
+  const pass = passwordField({
+    id: 'auth-password', label: mode === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe',
+    autocomplete: mode === 'login' ? 'current-password' : 'new-password',
+    placeholder: mode === 'login' ? 'Ton mot de passe' : '6 caractères minimum',
   });
+  const password = pass.input;
+  const confirm = needsConfirm
+    ? passwordField({ id: 'auth-password-confirm', label: 'Confirmer le mot de passe', autocomplete: 'new-password', placeholder: 'Le même mot de passe' })
+    : null;
   const submitLabels = { login: 'Se connecter', signup: 'Créer mon compte', forgot: 'Recevoir le lien', reset: 'Enregistrer le mot de passe' };
   const submit = h('button', { class: 'btn btn--primary btn--block', type: 'submit' }, submitLabels[mode]);
+  // Le bouton reste désactivé tant que les deux mots de passe ne sont pas identiques.
+  const passwordsMatch = needsConfirm
+    ? linkConfirmation({ password, confirm: confirm.input, hint: confirm.hint, submit })
+    : () => true;
 
   const form = h('form', { class: 'form', novalidate: false },
     message,
     mode !== 'reset' && h('label', { class: 'field', for: 'auth-email' }, h('span', { class: 'field__label' }, 'Email'), email),
-    mode !== 'forgot' && h('label', { class: 'field', for: 'auth-password' },
-      h('span', { class: 'field__label' }, mode === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'), password),
+    mode !== 'forgot' && pass.field,
+    confirm && confirm.field,
     submit);
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (!passwordsMatch()) return;
     submit.disabled = true;
     submit.classList.add('is-loading');
     message.hidden = true;
@@ -95,6 +110,7 @@ export function renderAuth(root, { mode = 'login', notice = null, onRecovered = 
     } finally {
       submit.disabled = false;
       submit.classList.remove('is-loading');
+      passwordsMatch(); // remet le bouton dans l'état qui correspond aux champs
     }
   });
 
@@ -108,7 +124,7 @@ export function renderAuth(root, { mode = 'login', notice = null, onRecovered = 
 
   root.replaceChildren(h('main', { class: 'auth' },
     h('div', { class: 'auth__card' },
-      h('div', { class: 'brand brand--big' }, h('span', { class: 'brand__star' }, '★'), 'MaCinéthèque'),
+      brand({ big: true }),
       h('h1', { class: 'auth__title' }, title),
       h('p', { class: 'auth__sub' }, subtitle),
       form,
