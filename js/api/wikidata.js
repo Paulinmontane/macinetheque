@@ -43,7 +43,18 @@ const chunks = (list, size) => Array.from({ length: Math.ceil(list.length / size
 /** Exécute une requête SPARQL et renvoie des lignes { variable: valeur }. */
 async function sparql(query, signal, timeout = 12000) {
   const url = `${SPARQL}?format=json&query=${encodeURIComponent(query)}`;
-  const data = await fetchJson(url, { signal, timeout, headers: { Accept: 'application/sparql-results+json' } });
+  let data;
+  // « trop de demandes » (429) ou surcharge passagère (503) : on patiente puis on réessaie
+  for (const pause of [1500, 4000, null]) {
+    try {
+      data = await fetchJson(url, { signal, timeout, headers: { Accept: 'application/sparql-results+json' } });
+      break;
+    } catch (error) {
+      if (pause === null || ![429, 503].includes(error.status) || signal?.aborted) throw error;
+      await new Promise((resolve) => setTimeout(resolve, pause));
+      if (signal?.aborted) throw new DOMException('Annulé', 'AbortError');
+    }
+  }
   return (data?.results?.bindings || []).map((row) =>
     Object.fromEntries(Object.entries(row).map(([key, cell]) => [key, cell.value])));
 }
