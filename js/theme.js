@@ -219,6 +219,9 @@
     if (meta) meta.setAttribute('content', p.bg);
     var scheme = document.querySelector('meta[name="color-scheme"]');
     if (scheme) scheme.setAttribute('content', mode);
+    // iPhone (site installé) : heure et batterie en blanc sur fond sombre, en noir sur fond clair
+    var status = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (status) status.setAttribute('content', mode === 'light' ? 'default' : 'black-translucent');
   }
 
   /** Change de thème : appliqué tout de suite ; `persist` = garder dans ce navigateur. */

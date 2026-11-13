@@ -42,7 +42,8 @@ export function renderStats(root) {
   if (!collection().length) {
     root.replaceChildren(pageHeader('Statistiques'), emptyState({
       iconName: 'chart', title: 'Pas encore de statistiques',
-      text: 'Note quelques films ou épisodes : tes chiffres et tes graphiques apparaîtront ici.',
+      text: 'Note quelques films ou épisodes, ou importe ton historique Netflix / Prime Video : tes chiffres et tes graphiques apparaîtront ici.',
+      action: h('a', { class: 'btn', href: '#/importer' }, icon('download', 18), 'Importer Netflix / Prime Video'),
     }));
     return () => {};
   }

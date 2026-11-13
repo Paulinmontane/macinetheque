@@ -24,7 +24,8 @@ export function createSearch() {
 
   const input = h('input', {
     class: 'search__input', type: 'text', inputmode: 'search', enterkeyhint: 'search',
-    placeholder: 'Rechercher un film ou une série…', 'aria-label': 'Rechercher un film ou une série',
+    // sur un petit écran, un texte court qui n'est pas coupé
+    placeholder: window.matchMedia?.('(max-width: 520px)').matches ? 'Film ou série…' : 'Rechercher un film ou une série…', 'aria-label': 'Rechercher un film ou une série',
     role: 'combobox', 'aria-expanded': 'false', 'aria-controls': 'search-list', 'aria-autocomplete': 'both',
     autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false',
   });

@@ -104,7 +104,28 @@ function mergeResults(lists, query) {
       + (item.poster_url || item.wiki?.en ? 3 : 0);
     remember(item);
   }
-  return merged.sort((a, b) => b.score - a.score);
+  // TVMaze propose aussi des séries seulement « proches » à l'écrit (« inception » →
+  // « Deception ») : sans rapport avec le texte tapé et jugées peu pertinentes par
+  // TVMaze, on les écarte. Une faute de frappe (« breking bad ») reste trouvée.
+  return merged
+    .filter((item) => item.source !== 'tvmaze' || itemMatch(item, query) > 15 || (item.relevance || 0) >= 0.45 || nearlySame(item.title, query))
+    .sort((a, b) => b.score - a.score);
+}
+
+/** Vrai si le titre ne diffère de ce qui est tapé que par une petite faute (1 lettre pour 6). */
+function nearlySame(title, query) {
+  const a = compact(title);
+  const b = compact(query);
+  if (b.length < 4) return false;
+  const max = Math.max(1, Math.floor(b.length / 6));
+  if (Math.abs(a.length - b.length) > max) return false;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i += 1) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j += 1) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length] <= max;
 }
 
 /**

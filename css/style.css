@@ -352,7 +352,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .toolbar__row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .toolbar__row .input--search { flex: 1; min-width: 180px; border-radius: 999px; }
 .toolbar__row--filters { display: grid; grid-template-columns: 1fr 1fr; }
-.toolbar__sort { display: flex; gap: 8px; }
+.toolbar__sort { display: flex; gap: 8px; grid-column: 1 / -1; } /* téléphone : le tri a toute la largeur */
+.toolbar__sort .select { flex: 1; min-width: 0; }
 .toolbar__count { color: var(--faint); font-size: 0.84rem; margin-bottom: 16px; }
 
 /* ---------------------------------------------------------------- étoiles */
@@ -922,6 +923,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   :root { --gutter: 24px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 28px 18px; }
   .toolbar__row--filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .toolbar__sort { grid-column: auto; }
   .tiles { grid-template-columns: repeat(3, 1fr); }
   .tile:last-child { grid-column: span 2; }
   .form--inline { grid-template-columns: 1fr auto; }
