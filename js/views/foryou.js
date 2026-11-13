@@ -129,7 +129,7 @@ export function renderForYou(root) {
         h('div', { class: 'reco__meta' },
           h('span', { class: `badge badge--${candidate.type}` }, typeLabel(candidate)),
           h('span', {}, [candidate.year, (candidate.countries || [])[0], (candidate.genres || []).slice(0, 2).join(', ')].filter(Boolean).join(' · '))),
-        h('h3', { class: 'reco__title' }, h('a', { href: itemUrl(candidate) }, candidate.title)),
+        h('h2', { class: 'reco__title' }, h('a', { href: itemUrl(candidate) }, candidate.title)),
         why,
         summary),
       h('div', { class: 'reco__actions' }, seen, later, skip));

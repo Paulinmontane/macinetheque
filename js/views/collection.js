@@ -134,7 +134,8 @@ export function renderCollection(root) {
     }))));
   }
 
-  root.replaceChildren(pageHeader('Ma collection'), recapBanner(), toolbar, count, results);
+  const banner = recapBanner();
+  root.replaceChildren(pageHeader('Ma collection'), ...(banner ? [banner] : []), toolbar, count, results);
   update();
 }
 

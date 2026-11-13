@@ -120,10 +120,13 @@
       p['line-strong'] = hsl(h, ts * 0.9, 0.76);
       p['star-empty'] = hsl(h, ts * 0.8, 0.82);
       p.text = hsl(h, ts * 1.2, 0.11);
-      p.muted = ensureContrast(hsl(h, ts * 0.8, 0.38), p.bg, 5);
-      p.faint = ensureContrast(hsl(h, ts * 0.6, 0.45), p.bg, 4.6);
+      // lisibles aussi sur les fonds un peu plus foncés (cartes, pastilles : surface-2)
+      // lisibles aussi sur les fonds un peu plus foncés (pastilles, boutons, survols)
+      var darkest = hsl(h, ts * 1.1, 0.9);
+      p.muted = ensureContrast(ensureContrast(hsl(h, ts * 0.8, 0.38), p.bg, 5), darkest, 4.6);
+      p.faint = ensureContrast(hsl(h, ts * 0.6, 0.45), darkest, 4.6);
       p.accent = ensureContrast(ensureContrast(accent, p.bg, 3), p['surface-2'], 2.6); // étoiles, boutons : visibles sur fond clair
-      p['accent-text'] = ensureContrast(accent, p.bg, 4.6); // liens, onglet actif : lisibles
+      p['accent-text'] = ensureContrast(ensureContrast(accent, p.bg, 4.6), darkest, 4.6); // liens, pastilles, onglet actif : lisibles même sur fond teinté
       p['accent-strong'] = mix(p.accent, '#000000', 0.1);
       p['accent-press'] = mix(p.accent, '#000000', 0.2);
       p.success = '#2E7D5B';
@@ -168,6 +171,11 @@
       p.accent = ensureContrast(p.accent, p['accent-ink'], 4.5);
       p['accent-strong'] = mix(p.accent, mode === 'light' ? '#000000' : '#FFFFFF', 0.1);
       p['accent-press'] = mix(p.accent, '#000000', 0.15);
+    }
+    // survol et appui : le texte du bouton reste lisible (≥ 4,5:1) sur ces nuances aussi
+    if (!(mode === 'dark' && theme.preset === 'givre')) {
+      p['accent-strong'] = ensureContrast(p['accent-strong'], p['accent-ink'], 4.5);
+      p['accent-press'] = ensureContrast(p['accent-press'], p['accent-ink'], 4.5);
     }
     p['accent-soft'] = rgba(p.accent, mode === 'light' ? 0.12 : 0.14);
     p['accent-line'] = rgba(p.accent, 0.45);

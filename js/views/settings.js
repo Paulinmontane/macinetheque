@@ -67,7 +67,7 @@ export function renderSettings(root) {
       h('span', { class: 'swatch__name' }, 'Personnalisée'),
       ...(theme.preset === 'custom' ? [h('span', { class: 'swatch__check' }, icon('check', 14))] : []),
       custom);
-    customCard.setAttribute('aria-checked', String(theme.preset === 'custom'));
+    custom.setAttribute('aria-label', theme.preset === 'custom' ? 'Couleur personnalisée (choisie) : changer la couleur' : 'Choisir une couleur personnalisée');
     modes.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.mode === theme.mode)));
   }
 

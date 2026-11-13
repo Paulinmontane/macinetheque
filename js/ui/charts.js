@@ -50,7 +50,7 @@ export function barChart({ data, caption, unit = (n) => String(n), showValues = 
     // n'affiche qu'une étiquette sur 2 ou 3 si la place manque
     const every = Math.ceil(34 / band);
 
-    const root = svg('svg', { class: 'chart__svg', width, height, viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': caption });
+    const root = svg('svg', { class: 'chart__svg', width, height, viewBox: `0 0 ${width} ${height}`, role: 'group', 'aria-label': caption });
 
     // grille horizontale discrète + graduations
     for (const tick of ticks) {
@@ -78,7 +78,7 @@ export function barChart({ data, caption, unit = (n) => String(n), showValues = 
         group.append(svg('text', { class: 'chart__label', x: x + barW / 2, y: height - 7, 'text-anchor': 'middle' }, d.label));
       }
       // zone sensible : toute la hauteur de la colonne, plus large que la barre
-      const hit = svg('rect', { class: 'chart__hit', x: margin.left + band * i, y: margin.top, width: band, height: plotH + margin.bottom, tabindex: 0, 'aria-label': `${d.name || d.label} : ${unit(d.value)}` });
+      const hit = svg('rect', { class: 'chart__hit', x: margin.left + band * i, y: margin.top, width: band, height: plotH + margin.bottom, tabindex: 0, role: 'img', 'aria-label': `${d.name || d.label} : ${unit(d.value)}` });
       const show = () => {
         tooltip.replaceChildren(h('strong', {}, unit(d.value)), h('span', {}, d.name || d.label));
         tooltip.hidden = false;

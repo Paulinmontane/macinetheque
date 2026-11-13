@@ -734,7 +734,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .actor-row__rank { color: var(--faint); font-size: 0.8rem; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .actor-row__name { font-weight: 600; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actor-row__figure { color: var(--muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; text-align: right; }
-.avatar { position: relative; display: inline-grid; place-items: center; flex: none; border-radius: 50%; overflow: hidden; background: color-mix(in srgb, var(--accent) 22%, var(--surface-2)); color: var(--accent-text); font-weight: 800; }
+.avatar { position: relative; display: inline-grid; place-items: center; flex: none; border-radius: 50%; overflow: hidden; background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); color: var(--accent-text); font-weight: 800; }
 .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.3s var(--ease); }
 .avatar.has-photo img { opacity: 1; }
 .avatar--sm { width: 34px; height: 34px; font-size: 0.78rem; }
@@ -779,7 +779,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .import__logo { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; background: var(--surface-2); border: 1px solid var(--line); color: var(--accent-text); font-weight: 800; font-size: 0.95rem; }
 .import__subtitle { margin: 16px 0 6px; font-size: 0.95rem; color: var(--title); }
 .import__steps { margin: 8px 0 14px; padding-left: 1.3em; display: grid; gap: 8px; color: var(--text); line-height: 1.5; }
-.import__steps a { color: var(--accent-text); }
+.import__steps a, .muted a, .setup a, .panel__sub a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
 .import__pick { position: relative; cursor: pointer; }
 .import__file { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
 .import__bookmarklet { cursor: grab; margin-top: 6px; border-style: dashed; }
