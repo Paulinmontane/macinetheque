@@ -307,6 +307,40 @@ export const markSeasonSeen = serial(async (itemData, seasonNumber, episodes, da
   return { item, added: rows.length };
 });
 
+/**
+ * Import d'historique (Netflix, Prime Video) : enregistre des visionnages
+ * « vus » (sans note) pour une œuvre.
+ *   rows : [{ season, episode, watched_on, runtime }] (season/episode vides pour un film)
+ * Ne touche jamais à une note, un commentaire ou une date déjà présents :
+ * seule une date « inconnue » est complétée. Renvoie { item, added, dated }.
+ */
+export const importViewings = serial(async (itemData, rows) => {
+  const item = await ensureItemNow(itemData);
+  const fresh = [];
+  const toDate = [];
+  for (const r of rows) {
+    if (r.watched_on && r.watched_on > todayISO()) continue;
+    const current = getRating(item.id, r.season ?? null, r.episode ?? null);
+    if (!current) {
+      fresh.push({ user_id: state.user.id, item_id: item.id, season: r.season ?? null, episode: r.episode ?? null, rating: null, comment: null, watched_on: r.watched_on || null, runtime: r.runtime ?? null });
+    } else if (!current.watched_on && r.watched_on) toDate.push([current, r.watched_on]);
+  }
+  for (let i = 0; i < fresh.length; i += 200) {
+    const saved = check(await sb.from('ratings')
+      .upsert(fresh.slice(i, i + 200), { onConflict: 'user_id,item_id,season,episode', ignoreDuplicates: true }).select());
+    const ids = new Set(saved.map((row) => row.id));
+    state.ratings = state.ratings.filter((row) => !ids.has(row.id)).concat(saved);
+  }
+  for (const [current, date] of toDate) {
+    const saved = check(await sb.from('ratings').update({ watched_on: date }).eq('id', current.id).select().single());
+    state.ratings = state.ratings.filter((row) => row.id !== saved.id).concat(saved);
+  }
+  // un film vu sort de la liste « à voir »
+  if (item.type === 'film' && state.watchlist.has(item.id)) await removeFromWatchlistNow(item.id, { silent: true });
+  emit();
+  return { item, added: fresh.length, dated: toDate.length };
+});
+
 export const addToWatchlist = serial(async (itemData) => {
   const item = await ensureItemNow(itemData);
   if (!state.watchlist.has(item.id)) {

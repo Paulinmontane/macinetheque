@@ -1,6 +1,6 @@
 # MaCinéthèque
 
-Un site personnel pour **noter les films et les séries que tu regardes** : recherche avec autocomplétion, notes de 1 à 5 étoiles (films, séries, saisons, épisodes), commentaires, dates de visionnage, liste « à voir », suggestions, statistiques détaillées (temps de visionnage, acteurs), récaps du mois et de l'année, thèmes de couleurs. Il fonctionne sur ordinateur comme sur iPhone, où il s'installe comme une application.
+Un site personnel pour **noter les films et les séries que tu regardes** : recherche avec autocomplétion, notes de 1 à 5 étoiles (films, séries, saisons, épisodes), commentaires, dates de visionnage, liste « à voir », suggestions, statistiques détaillées (temps de visionnage par jour, semaine, mois ou année, acteurs), récaps du mois et de l'année, thèmes de couleurs, import de l'historique Netflix et Prime Video. Il fonctionne sur ordinateur comme sur iPhone, où il s'installe comme une application.
 
 - **Site** : HTML / CSS / JavaScript simples, sans étape de fabrication → hébergé gratuitement sur **GitHub Pages**.
 - **Comptes et données** : **Supabase** (offre gratuite). Chaque utilisateur ne voit et ne modifie que ses propres données.
@@ -266,10 +266,13 @@ Tant que ce script n'est pas collé, le site fonctionne : les statistiques de te
 | Email oublié | Sur l'écran de connexion, **Email oublié ?** : le site affiche les adresses déjà utilisées pour se connecter sur cet appareil (un appui la reprend) et explique où retrouver la bonne. Ces adresses restent dans le navigateur, elles ne sont envoyées nulle part. En tant que propriétaire du site, tu peux aussi voir tous les comptes dans Supabase → **Authentication** → **Users**. |
 | Résumés | Les résumés en anglais sont traduits automatiquement ; **voir l'original** affiche le texte d'origine. |
 | Sauvegarde | Page **Compte** → **Exporter mes données** télécharge toutes tes notes dans un fichier. |
-| Temps de visionnage | Page **Stats** : choisis **Jour**, **Mois**, **Année** ou **Depuis toujours**, change de période avec **‹ ›** ou en touchant la date (calendrier ou liste, rien à taper). Tous les chiffres de la page (films, séries, saisons, épisodes, genres, pays, notes, acteurs) suivent la période choisie. |
+| Temps de visionnage | Page **Stats** : choisis **Jour**, **Semaine** (du lundi au dimanche), **Mois**, **Année** ou **Depuis toujours** (« Toujours » sur téléphone), change de période avec **‹ ›** ou en touchant la date (calendrier ou liste, rien à taper). Tous les chiffres de la page (films, séries, saisons, épisodes, genres, pays, notes, acteurs) suivent la période choisie. |
 | Comment le temps est compté | Chaque film ou épisode compte à sa date de visionnage ; « date inconnue » ne compte que dans « Depuis toujours ». Sans durée connue : 110 min pour un film, 45 min pour un épisode (« durée estimée »). Une saison notée ou marquée vue sans ses épisodes compte tous ses épisodes à la date de la saison, sans jamais compter deux fois un épisode noté à part. Une note donnée à la série entière seule n'ajoute pas de temps. |
 | Acteurs | Page **Stats**, en bas : **le plus regardé** (au temps passé, puis au nombre d'œuvres) et **le préféré** (meilleure moyenne, au moins 2 œuvres notées). Filtre **Films / Séries / Les deux**. Touche un acteur pour voir ses œuvres que tu as vues. |
 | Récaps | Le récap d'un mois arrive le 1er du mois suivant ; celui de l'année, « en cours » dès le 1er décembre puis définitif le 1er janvier. Une bannière sur l'accueil prévient. Touche à droite (ou glisse) pour avancer, à gauche pour revenir, ✕ pour fermer. Le dernier écran propose **Partager** : une image 1080 × 1920 pour le menu de partage de l'iPhone (ou téléchargée sur ordinateur). |
+| Importer Netflix | Page **Compte** → **Importer Netflix / Prime Video**. Sur [netflix.com/viewingactivity](https://www.netflix.com/viewingactivity) (dans le navigateur, pas l'application), choisis ton profil puis **Télécharger tout** en bas de la liste ; choisis ce fichier `NetflixViewingHistory.csv` sur le site. |
+| Importer Prime Video | Sur ordinateur : fais glisser le bouton **📥 Copier mon historique Prime** dans ta barre de favoris, ouvre [ton historique Prime Video](https://www.primevideo.com/settings/watch-history), clique le favori (la page défile toute seule et l'historique est copié), puis colle-le sur le site. Sur iPhone : sélectionne tout le texte de la page d'historique, copie, colle. Un fichier de données demandé à Amazon marche aussi. |
+| Après le choix du fichier | Le site retrouve chaque film et série (les titres français sont reconnus). Ce qui est sûr est coché ; ce qui est « à vérifier » ne l'est pas : coche-le ou choisis la bonne œuvre dans la liste. **Importer** ajoute tout comme « vu », sans note, à la date du visionnage. Tes notes, commentaires et dates existants ne sont jamais modifiés (seule une date « inconnue » est complétée), et réimporter le même fichier ne crée pas de doublon. |
 | Couleurs | **Réglages** (engrenage en haut à droite, ou page **Compte**) : 10 thèmes, une couleur personnalisée (roue de couleur ou code), mode **Sombre / Clair / Automatique**, **Réinitialiser**. Le choix suit ton compte sur tous tes appareils. L'icône de l'application sur l'iPhone reste en Bleu givré. |
 
 ## Modifier le site plus tard
@@ -336,6 +339,9 @@ macinetheque/
     │   ├── service.js      récaps disponibles, calcul et cache
     │   ├── story.js        lecture plein écran façon « stories »
     │   └── share.js        image 1080 × 1920 à partager
+    ├── import/
+    │   ├── parse.js        lecture des historiques Netflix / Prime Video, regroupement, épisodes
+    │   └── match.js        retrouve chaque titre dans le catalogue
     ├── reco/
     │   ├── profile.js      profil de goûts, score et raison d'une suggestion, variété
     │   └── engine.js       recherche des œuvres candidates, cache de 24 h, classement
@@ -349,6 +355,7 @@ macinetheque/
         ├── stats.js        statistiques (temps, compteurs, acteurs)
         ├── recaps.js       page « Récaps »
         ├── settings.js     page « Réglages » (couleurs, mode)
+        ├── import.js       page « Importer » (Netflix, Prime Video)
         └── account.js      compte (déconnexion, mot de passe, export)
 ```
 
@@ -405,6 +412,7 @@ Toutes les API utilisées autorisent les appels depuis un site web : **aucun ser
 - **Supabase gratuit** : un projet sans aucune visite pendant une semaine est **mis en pause**. Tes données ne sont pas perdues : rouvre le tableau de bord Supabase et relance le projet avec le bouton proposé.
 - **Acteurs des films** : Wikidata ne donne pas l'ordre de l'affiche ; les « acteurs principaux » d'un film sont donc ses 10 acteurs les plus connus. Pour les séries, ce sont les 10 premiers de la distribution TVMaze. Quelques photos manquent : un rond avec les initiales les remplace.
 - **Durées** : quand ni Wikidata ni TVMaze ne connaissent la durée, le site compte 110 min par film et 45 min par épisode, et l'indique (« durée estimée »).
+- **Netflix et Prime Video** : aucun des deux ne permet à un autre site de se connecter à ton compte (pas d'accès officiel), et il ne faut jamais donner ce mot de passe à un autre site. L'import part donc du fichier que Netflix te laisse télécharger et du texte de la page d'historique de Prime Video. Netflix donne les titres d'épisodes en français et TVMaze en anglais : quand le titre ne correspond pas, l'épisode est placé au plus petit numéro libre de la saison, dans l'ordre où tu les as vus. Netflix compte aussi ce qui a seulement été commencé. Le bouton-favori Prime Video a été testé sur une page qui imite la vraie : si Amazon change sa page, le copier-coller manuel reste possible.
 - **Hors-ligne** : l'application s'ouvre sans réseau, mais noter ou chercher demande une connexion.
 
 ## Tests réalisés
@@ -431,6 +439,8 @@ Le site a été testé dans un vrai navigateur (Chromium piloté automatiquement
 | **V3 — acteurs** | Filtres Films / Séries / Les deux comparés au calcul commun ; aucun acteur de série dans « Films » ; préféré seulement avec au moins 2 œuvres notées (septembre : aucun) ; formats « 10 h · 1 œuvre » et « 4,6★ de moyenne sur 4 œuvres » ; fiche acteur ; initiales sans photo. |
 | **V3 — récaps** — 31 contrôles | Bannière « Ton récap d'octobre est prêt » qui ouvre le récap ; pas de récap pour le mois en cours ni les mois vides ; écrans sans données sautés ; toucher, glisser, clavier, barres de progression ; chiffres animés (et directs si « moins d'animations ») ; image PNG 1080 × 1920 ; marqué vu dans Supabase ; cache relu, puis recalculé après une note modifiée ; année « en cours » au 2 décembre et définitive au 1er janvier (date simulée). |
 | **V3 — thèmes** — 23 contrôles | Palette « Bleu givré » exacte au premier lancement ; 10 thèmes × sombre / clair appliqués en direct avec contrastes WCAG AA ; Duo ; couleur personnalisée (roue et code) avec nuances calculées ; mode automatique ; pas de flash (thème posé avant la feuille de style) ; même thème sur un 2e appareil après connexion ; Réinitialiser ; aucune trace d'ambre hors du thème « Ambre ». |
+| **Semaine** — 11 + 7 contrôles | Semaine du lundi au dimanche (y compris à cheval sur deux mois ou deux années) ; somme des 7 jours = total de la semaine ; somme des semaines = total du mois ; moyenne par jour (sur les jours écoulés pour la semaine en cours) ; 7 barres « lun 9… dim 15 » ; flèches et calendrier (un jeudi choisi → sa semaine) ; tient sur iPhone SE. |
+| **Import Netflix / Prime Video** — 36 + 28 + 7 contrôles | 16 formes de titres Netflix (français, anglais, « Partie », « Mini-série », « Stranger Things 2 », films avec « : ») ; dates françaises et américaines ; export Amazon ; texte Prime Video avec menus et boutons ignorés. Compte de test : Breaking Bad, La casa de papel, Stranger Things, Le Jeu de la dame, Intouchables, Parasite retrouvés ; titre inexistant non coché ; épisode revu compté une fois à sa 1re date ; note 5★ conservée et date manquante complétée ; film retiré de « à voir » ; 2e import identique sans doublon. Bouton-favori sur une fausse page Prime : défilement complet, épisodes dépliés, aucun bouton « Supprimer » touché. |
 | **V3 — iPhone** — 22 contrôles | iPhone SE et iPhone 13 : barre du bas à 6 onglets lisibles, aucune page qui déborde, sélecteur de période sur une ligne, récaps en plein écran sans texte coupé. |
 | **V3 — sécurité et migration** | 15 contrôles de plus : `recaps` et `user_settings` invisibles et intouchables pour un autre compte ; `people` / `item_cast` en lecture + ajout seulement, personne ne peut modifier ni effacer ; migration appliquée deux fois sans changer aucune donnée ; `schema.sql` complet vérifié sur une base neuve. |
 | **V2 — migration** | Script appliqué deux fois sur une base remplie : toutes les données identiques avant / après ; le site fonctionne aussi tant que le script n'est pas collé. |

@@ -45,12 +45,26 @@ export function summarizeRatings(rows) {
 //  Périodes
 // ---------------------------------------------------------------------------
 /**
- * Une période : { kind: 'day' | 'month' | 'year' | 'all', key }
- *   day → '2026-10-14'   month → '2026-10'   year → '2026'   all → ''
+ * Une période : { kind: 'day' | 'week' | 'month' | 'year' | 'all', key }
+ *   day → '2026-10-14'   week → '2026-10-12' (le lundi)   month → '2026-10'
+ *   year → '2026'        all → ''
+ * Une semaine va du lundi au dimanche.
  */
+export function addDays(dateKey, days) {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+/** Lundi de la semaine d'une date. */
+export function weekStart(dateKey) {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const weekday = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7; // lundi = 0
+  return addDays(dateKey, -weekday);
+}
 export function inPeriod(date, period) {
   if (period.kind === 'all') return true;
-  return !!date && date.startsWith(period.key);
+  if (!date) return false;
+  if (period.kind === 'week') return date >= period.key && date <= addDays(period.key, 6);
+  return date.startsWith(period.key);
 }
 
 /** Période précédente (ou suivante avec step = +1). */
@@ -62,8 +76,8 @@ export function shiftPeriod(period, step) {
     const d = new Date(Date.UTC(y, m - 1 + step, 1));
     return { kind: 'month', key: d.toISOString().slice(0, 7) };
   }
-  const [y, m, d] = period.key.split('-').map(Number);
-  return { kind: 'day', key: new Date(Date.UTC(y, m - 1, d + step)).toISOString().slice(0, 10) };
+  if (period.kind === 'week') return { kind: 'week', key: addDays(period.key, 7 * step) };
+  return { kind: 'day', key: addDays(period.key, step) };
 }
 
 export function daysInMonth(monthKey) {
@@ -212,9 +226,11 @@ export function periodStats(data, ratings, items, period, today) {
   const episodeNotes = rated.filter((row) => row.episode != null).map((row) => row.rating);
   const distribution = (list) => [1, 2, 3, 4, 5].map((n) => list.filter((value) => value === n).length);
 
-  // ---- graphique : une barre par jour (mois), par mois (année), par année (depuis toujours)
+  // ---- graphique : une barre par jour (semaine, mois), par mois (année), par année (depuis toujours)
   let buckets = [];
-  if (period.kind === 'month') {
+  if (period.kind === 'week') {
+    buckets = Array.from({ length: 7 }, (_, i) => ({ key: addDays(period.key, i), minutes: 0 }));
+  } else if (period.kind === 'month') {
     buckets = Array.from({ length: daysInMonth(period.key) }, (_, i) => ({ key: `${period.key}-${String(i + 1).padStart(2, '0')}`, minutes: 0 }));
   } else if (period.kind === 'year') {
     buckets = MONTH_KEYS.map((m) => ({ key: `${period.key}-${m}`, minutes: 0 }));
@@ -223,14 +239,18 @@ export function periodStats(data, ratings, items, period, today) {
     if (years.length) for (let y = Number(years[0]); y <= Number(years.at(-1)); y += 1) buckets.push({ key: String(y), minutes: 0 });
   }
   const byKey = new Map(buckets.map((b) => [b.key, b]));
-  const bucketOf = (date) => (period.kind === 'month' ? date : period.kind === 'year' ? date.slice(0, 7) : date.slice(0, 4));
+  const bucketOf = (date) => (period.kind === 'month' || period.kind === 'week' ? date : period.kind === 'year' ? date.slice(0, 7) : date.slice(0, 4));
   for (const v of views) if (v.date && period.kind !== 'day') { const b = byKey.get(bucketOf(v.date)); if (b) b.minutes += v.minutes; }
 
   // ---- moyennes : par jour sur le mois, par mois sur l'année (jusqu'à aujourd'hui pour la période en cours)
   const total = sum(views);
   let perDay = null;
   let perMonth = null;
-  if (period.kind === 'month') {
+  if (period.kind === 'week') {
+    const end = addDays(period.key, 6);
+    const days = today > end ? 7 : today < period.key ? 0 : Math.round((Date.parse(today) - Date.parse(period.key)) / 86400000) + 1;
+    perDay = days ? total / days : null;
+  } else if (period.kind === 'month') {
     const days = period.key === today.slice(0, 7) ? Number(today.slice(8, 10)) : period.key > today.slice(0, 7) ? 0 : daysInMonth(period.key);
     perDay = days ? total / days : null;
   } else if (period.kind === 'year') {
@@ -344,6 +364,14 @@ export function periodLabel(period) {
   if (period.kind === 'day') {
     const [y, m, d] = period.key.split('-').map(Number);
     return `${d === 1 ? '1er' : d} ${MONTHS_FR[m - 1]} ${y}`;
+  }
+  if (period.kind === 'week') { // « semaine du 9 au 15 novembre 2026 », « … du 28 septembre au 4 octobre 2026 »
+    const end = addDays(period.key, 6);
+    const [y1, m1, d1] = period.key.split('-').map(Number);
+    const [y2, m2, d2] = end.split('-').map(Number);
+    const day = (d) => (d === 1 ? '1er' : String(d));
+    const from = y1 !== y2 ? `${day(d1)} ${MONTHS_FR[m1 - 1]} ${y1}` : m1 !== m2 ? `${day(d1)} ${MONTHS_FR[m1 - 1]}` : day(d1);
+    return `semaine du ${from} au ${day(d2)} ${MONTHS_FR[m2 - 1]} ${y2}`;
   }
   return 'depuis toujours';
 }

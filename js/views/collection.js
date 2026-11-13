@@ -37,7 +37,9 @@ export function renderCollection(root) {
         iconName: 'grid',
         title: 'Aucun film noté pour l’instant',
         text: 'Cherche un film ou une série avec la barre de recherche, ouvre sa fiche et donne-lui ta première note : elle apparaîtra ici.',
-        action: h('button', { class: 'btn btn--primary', type: 'button', onClick: () => document.querySelector('.search__input')?.focus() }, 'Rechercher une œuvre'),
+        action: h('div', { class: 'empty__actions' },
+          h('button', { class: 'btn btn--primary', type: 'button', onClick: () => document.querySelector('.search__input')?.focus() }, 'Rechercher une œuvre'),
+          h('a', { class: 'btn', href: '#/importer' }, icon('download', 18), 'Importer Netflix / Prime Video')),
       }));
     return;
   }

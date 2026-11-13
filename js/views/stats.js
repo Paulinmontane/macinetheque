@@ -1,6 +1,6 @@
 // ============================================================================
 //  Statistiques : temps de visionnage, compteurs, notes, genres, pays et
-//  acteurs — pour la période choisie (jour, mois, année ou depuis toujours).
+//  acteurs — pour la période choisie (jour, semaine, mois, année ou depuis toujours).
 //  Tous les calculs viennent du module commun js/stats/core.js.
 // ============================================================================
 import { h, icon, formatNumber, formatTime, formatDuration, todayISO, initials, isAbort } from '../utils.js';
@@ -9,18 +9,29 @@ import { emptyState, pageHeader, poster, itemUrl } from '../ui/cards.js';
 import { barChart, rankList } from '../ui/charts.js';
 import { starDisplay } from '../ui/stars.js';
 import {
-  buildViewings, periodStats, actorStats, shiftPeriod, periodLabel, workKey, DEFAULT_FILM_MINUTES, DEFAULT_EPISODE_MINUTES,
+  buildViewings, periodStats, actorStats, shiftPeriod, periodLabel, workKey, weekStart, addDays, DEFAULT_FILM_MINUTES, DEFAULT_EPISODE_MINUTES,
 } from '../stats/core.js';
 import { ensureStatsData } from '../stats/complete.js';
 
 // Réglages gardés tant que l'onglet reste ouvert
 const view = { period: { kind: 'all', key: '' }, actors: 'all', notes: 'works' };
 const MONTHS_SHORT = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+const WEEKDAYS = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+
+/** Semaine en court, pour le bouton : « 9 – 15 nov. 2026 ». */
+function weekShort(monday) {
+  const end = addDays(monday, 6);
+  const [, m1, d1] = monday.split('-').map(Number);
+  const [y2, m2, d2] = end.split('-').map(Number);
+  const month = (m) => (MONTHS_SHORT[m - 1].length > 4 ? `${MONTHS_SHORT[m - 1]}.` : MONTHS_SHORT[m - 1]);
+  return m1 === m2 ? `${d1} – ${d2} ${month(m2)} ${y2}` : `${d1} ${month(m1)} – ${d2} ${month(m2)} ${y2}`;
+}
 const plural = (n, word, words = `${word}s`) => `${formatNumber(n)} ${n > 1 ? words : word}`;
 
 /** Période « actuelle » d'un type : aujourd'hui, ce mois-ci, cette année. */
 function currentPeriod(kind, today = todayISO()) {
   if (kind === 'day') return { kind, key: today };
+  if (kind === 'week') return { kind, key: weekStart(today) };
   if (kind === 'month') return { kind, key: today.slice(0, 7) };
   if (kind === 'year') return { kind, key: today.slice(0, 4) };
   return { kind: 'all', key: '' };
@@ -61,8 +72,9 @@ export function renderStats(root) {
   // ------------------------------------------------------------------ période
   function periodBar(data, today) {
     const p = view.period;
-    const kinds = [['day', 'Jour'], ['month', 'Mois'], ['year', 'Année'], ['all', 'Depuis toujours']].map(([kind, label]) =>
-      h('button', { class: 'segmented__btn', type: 'button', 'aria-pressed': String(p.kind === kind), onClick: () => { view.period = currentPeriod(kind, today); draw(); } }, label));
+    const kinds = [['day', 'Jour'], ['week', 'Semaine'], ['month', 'Mois'], ['year', 'Année'], ['all', 'Depuis toujours']].map(([kind, label]) =>
+      h('button', { class: 'segmented__btn', type: 'button', 'aria-label': label, 'aria-pressed': String(p.kind === kind), onClick: () => { view.period = currentPeriod(kind, today); draw(); } },
+        kind === 'all' ? [h('span', { class: 'period__long' }, label), h('span', { class: 'period__short' }, 'Toujours')] : label));
     const bar = h('div', { class: 'period' }, h('div', { class: 'segmented period__kinds', role: 'group', 'aria-label': 'Période' }, kinds));
     if (p.kind === 'all') return bar;
 
@@ -76,10 +88,14 @@ export function renderStats(root) {
 
     // saut direct à une date : calendrier natif (jour) ou listes (mois, année) — rien à taper
     let jump;
-    if (p.kind === 'day') {
-      const native = h('input', { class: 'chipbtn__native', type: 'date', value: p.key, min: first, max: today, 'aria-label': 'Choisir un jour' });
-      native.addEventListener('change', () => { if (native.value && native.value <= today) { view.period = { kind: 'day', key: native.value }; draw(); } });
-      jump = h('span', { class: 'chipbtn__wrap period__jump' }, h('button', { class: 'chipbtn chipbtn--date', type: 'button', tabindex: '-1' }, icon('calendar', 15), periodLabel(p)), native);
+    if (p.kind === 'day' || p.kind === 'week') {
+      // semaine : on touche n'importe quel jour dans le calendrier, la semaine qui le contient s'affiche
+      const week = p.kind === 'week';
+      const native = h('input', { class: 'chipbtn__native', type: 'date', value: p.key, min: week ? weekStart(first) : first, max: today, 'aria-label': week ? 'Choisir un jour de la semaine voulue' : 'Choisir un jour' });
+      native.addEventListener('change', () => {
+        if (native.value && native.value <= today) { view.period = { kind: p.kind, key: week ? weekStart(native.value) : native.value }; draw(); }
+      });
+      jump = h('span', { class: 'chipbtn__wrap period__jump' }, h('button', { class: 'chipbtn chipbtn--date', type: 'button', tabindex: '-1' }, icon('calendar', 15), week ? weekShort(p.key) : periodLabel(p)), native);
       native.addEventListener('click', () => { try { native.showPicker(); } catch { /* calendrier déjà ouvert */ } });
     } else {
       const options = [];
@@ -128,11 +144,11 @@ export function renderStats(root) {
             v.rating ? starDisplay(v.rating) : null))))
         : h('p', { class: 'muted panel__empty' }, 'Rien de vu ce jour-là.');
     } else if (s.buckets.length) {
-      const label = (key) => (p.kind === 'month' ? String(Number(key.slice(8, 10))) : p.kind === 'year' ? MONTHS_SHORT[Number(key.slice(5, 7)) - 1] : key);
-      const name = (key) => (p.kind === 'month' ? periodLabel({ kind: 'day', key }) : p.kind === 'year' ? periodLabel({ kind: 'month', key }) : key);
+      const label = (key) => (p.kind === 'week' ? `${WEEKDAYS[(new Date(`${key}T12:00:00Z`).getUTCDay() + 6) % 7]} ${Number(key.slice(8, 10))}` : p.kind === 'month' ? String(Number(key.slice(8, 10))) : p.kind === 'year' ? MONTHS_SHORT[Number(key.slice(5, 7)) - 1] : key);
+      const name = (key) => (p.kind === 'month' || p.kind === 'week' ? periodLabel({ kind: 'day', key }) : p.kind === 'year' ? periodLabel({ kind: 'month', key }) : key);
       chart = barChart({
         data: s.buckets.map((b) => ({ label: label(b.key), name: name(b.key), value: b.minutes / 60 })),
-        caption: `Temps de visionnage par ${p.kind === 'month' ? 'jour' : p.kind === 'year' ? 'mois' : 'année'} (en heures)`,
+        caption: `Temps de visionnage par ${p.kind === 'month' || p.kind === 'week' ? 'jour' : p.kind === 'year' ? 'mois' : 'année'} (en heures)`,
         unit: (hours) => formatTime(hours * 60),
       });
     } else {

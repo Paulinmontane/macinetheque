@@ -58,7 +58,9 @@ export function renderAccount(root) {
 
   root.replaceChildren(
     pageHeader('Compte'),
-    h('a', { class: 'btn account__settings', href: '#/reglages' }, icon('gear', 18), 'Réglages : couleurs et apparence'),
+    h('div', { class: 'account__links' },
+      h('a', { class: 'btn account__settings', href: '#/reglages' }, icon('gear', 18), 'Réglages : couleurs et apparence'),
+      h('a', { class: 'btn account__settings', href: '#/importer' }, icon('download', 18), 'Importer Netflix / Prime Video')),
     h('section', { class: 'panel' },
       h('h2', { class: 'panel__title' }, 'Connecté en tant que'),
       h('p', { class: 'account__email' }, state.user?.email || ''),

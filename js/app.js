@@ -14,6 +14,7 @@ import { renderAccount } from './views/account.js';
 import { renderForYou } from './views/foryou.js';
 import { renderRecaps } from './views/recaps.js';
 import { renderSettings, applyRemoteTheme } from './views/settings.js';
+import { renderImport } from './views/import.js';
 import { createSearch } from './ui/search.js';
 import { brand } from './ui/logo.js';
 
@@ -89,7 +90,7 @@ function showShell() {
 //  Navigation : l'adresse après le « # » indique la page à afficher
 //    #/                     → collection        #/a-voir → liste à voir
 //    #/pour-toi             → suggestions       #/compte → compte
-//    #/stats                → statistiques
+//    #/stats                → statistiques       #/importer → import Netflix / Prime Video
 //    #/recherche/<texte>    → résultats
 //    #/oeuvre/<source>/<id> → fiche d'une œuvre
 // ---------------------------------------------------------------------------
@@ -110,6 +111,7 @@ function route() {
   else if (page === 'pour-toi') leaveView = renderForYou(view);
   else if (page === 'recaps') leaveView = renderRecaps(view, { open: new URLSearchParams(query).get('ouvrir') });
   else if (page === 'reglages') leaveView = renderSettings(view);
+  else if (page === 'importer') leaveView = renderImport(view);
   else if (page === 'stats') renderStats(view);
   else if (page === 'compte') renderAccount(view);
   else if (page === 'recherche' && parts[1]) leaveView = renderResults(view, parts.slice(1).join('/'));

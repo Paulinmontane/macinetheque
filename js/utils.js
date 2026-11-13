@@ -65,6 +65,7 @@ const ICONS = {
   sparkles: 'M10 3l1.8 5.2L17 10l-5.2 1.8L10 17l-1.8-5.2L3 10l5.2-1.8zM18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z',
   refresh: 'M20 11a8 8 0 0 0-14.3-4.6L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.6L20 16M20 20v-4h-4',
   calendar: 'M5 5h14v15H5zM5 10h14M9 3v4M15 3v4',
+  download: 'M12 3v12M7.5 10.5L12 15l4.5-4.5M5 15v5h14v-5',
   'thumb-down': 'M8 14V4h9.5a2 2 0 0 1 2 1.6l1.2 6a2 2 0 0 1-2 2.4H14l.7 3.6a2 2 0 0 1-3.6 1.5zM8 14H4V4h4',
 };
 export function icon(name, size = 20) {
