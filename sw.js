@@ -9,7 +9,7 @@
 //  Les appels aux API (Supabase, TVMaze, iTunes, Wikidata…) ne sont jamais
 //  mis en cache ici.
 // ============================================================================
-const CACHE = 'macinetheque-v2'; // à augmenter à chaque changement d'icône ou de liste de fichiers
+const CACHE = 'macinetheque-v3'; // à augmenter à chaque changement d'icône ou de liste de fichiers
 const SHELL = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest', 'lib/supabase.js',
   'js/app.js', 'js/config.js', 'js/utils.js', 'js/supabase.js', 'js/store.js', 'js/catalog.js',
@@ -17,6 +17,8 @@ const SHELL = [
   'js/ui/search.js', 'js/ui/stars.js', 'js/ui/cards.js', 'js/ui/charts.js', 'js/ui/logo.js',
   'js/ui/datepicker.js', 'js/ui/confirm.js', 'js/ui/password.js', 'js/ui/quickrate.js',
   'js/reco/profile.js', 'js/reco/engine.js', 'js/views/foryou.js',
+  'js/theme.js', 'js/stats/core.js', 'js/stats/complete.js', 'js/recap/service.js', 'js/recap/story.js', 'js/recap/share.js',
+  'js/views/recaps.js', 'js/views/settings.js',
   'js/views/auth.js', 'js/views/collection.js', 'js/views/watchlist.js', 'js/views/stats.js',
   'js/views/item.js', 'js/views/results.js', 'js/views/account.js',
   'icons/icon-192.png', 'icons/favicon.svg', 'icons/favicon-32.png',

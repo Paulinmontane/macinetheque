@@ -2,9 +2,10 @@
 //  Ma collection : grille d'affiches de tout ce qui est noté ou marqué vu,
 //  avec tri, filtres et recherche.
 // ============================================================================
-import { h, normalize, formatNumber } from '../utils.js';
+import { h, icon, normalize, formatNumber } from '../utils.js';
 import { collection, state } from '../store.js';
 import { card, grid, emptyState, pageHeader } from '../ui/cards.js';
+import { pendingRecap, bannerText } from '../recap/service.js';
 
 // Les réglages sont gardés tant que l'onglet reste ouvert.
 const DEFAULTS = { type: 'all', genre: '', minRating: 0, year: '', text: '', sort: 'date', descending: true };
@@ -131,9 +132,17 @@ export function renderCollection(root) {
     }))));
   }
 
-  root.replaceChildren(pageHeader('Ma collection'), toolbar, count, results);
+  root.replaceChildren(pageHeader('Ma collection'), recapBanner(), toolbar, count, results);
   update();
 }
 
 /** Nombre d'œuvres dans la collection (affiché sur la page Compte). */
 export function collectionSize() { return state.loaded ? collection().length : 0; }
+
+/** Bannière discrète « Ton récap d’octobre est prêt » (récap pas encore ouvert). */
+function recapBanner() {
+  const recap = pendingRecap();
+  if (!recap) return null;
+  return h('a', { class: 'recap-banner', href: `#/recaps?ouvrir=${recap.kind}:${recap.key}` },
+    icon('replay', 20), h('span', {}, bannerText(recap)), h('span', { class: 'recap-banner__go' }, 'Voir', icon('chevron', 16)));
+}

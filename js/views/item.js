@@ -14,7 +14,7 @@ import { loadItem, recall, enrichFromWikidata } from '../catalog.js';
 import {
   findItem, getRating, saveRating, deleteRating, markSeasonSeen,
   addToWatchlist, removeFromWatchlist, isInWatchlist, updateItem,
-  seasonAverage, seriesAverage,
+  seasonAverage, seriesAverage, seasonsMetaOf,
 } from '../store.js';
 import { datePicker } from '../ui/datepicker.js';
 import { showSaved, showFailed, levelLabel } from '../ui/confirm.js';
@@ -112,6 +112,11 @@ export function renderItem(root, { source, id, focusRating = false }) {
     }
     for (const field of ['countries', 'genres']) {
       if (!saved[field]?.length && item[field]?.length) patch[field] = item[field];
+    }
+    // série : durée de chaque épisode (temps de visionnage, saisons marquées vues)
+    if (item.type === 'serie' && item.seasons?.length && !saved.seasons_meta) {
+      patch.seasons_meta = seasonsMetaOf(item.seasons);
+      patch.meta_at = new Date().toISOString();
     }
     if (Object.keys(patch).length) updateItem(saved.id, patch).catch(() => {});
   }

@@ -10,6 +10,9 @@
 import { sb } from './supabase.js';
 import { setRemoteCache } from './api/translate.js';
 import { todayISO } from './utils.js';
+import { summarizeRatings } from './stats/core.js';
+
+export { summarizeRatings }; // (le calcul est centralisé dans js/stats/core.js)
 
 export const state = {
   user: null,
@@ -20,6 +23,10 @@ export const state = {
   // La migration V2 (supabase/migration_v2.sql) a-t-elle été appliquée ?
   // Tant que non, le site fonctionne comme avant ; seule la page « Pour toi » attend.
   v2: false,
+  // Migration V3 (supabase/migration_v3.sql) : durées, acteurs, récaps, réglages.
+  v3: false,
+  recaps: new Map(), // « kind:période » → { kind, period, signature, seen_at, generated_at }
+  settings: null, // réglages enregistrés (thème) ou null
   loaded: false,
 };
 
@@ -27,8 +34,19 @@ export const state = {
 const ITEM_FIELDS = ['source', 'source_id', 'type', 'title', 'year', 'countries', 'genres', 'poster_url', 'summary_fr', 'summary_original', 'runtime'];
 // … et celles ajoutées par la migration V2 (pour les suggestions).
 const ITEM_FIELDS_V2 = ['wikidata_id', 'directors', 'actors', 'credits_at'];
+// … et par la migration V3 (durées des épisodes, vérifications)
+const ITEM_FIELDS_V3 = ['seasons_meta', 'meta_at', 'cast_at'];
 const LIST_FIELDS = ['countries', 'genres', 'directors', 'actors'];
-const itemFields = () => (state.v2 ? [...ITEM_FIELDS, ...ITEM_FIELDS_V2] : ITEM_FIELDS);
+const itemFields = () => [...ITEM_FIELDS, ...(state.v2 ? ITEM_FIELDS_V2 : []), ...(state.v3 ? ITEM_FIELDS_V3 : [])];
+
+/**
+ * Durées des épisodes d'une série, saison par saison, au format stocké dans
+ * items.seasons_meta : {"1": [[1, 58], [2, 48]], …}.
+ */
+export function seasonsMetaOf(seasons) {
+  if (!Array.isArray(seasons) || !seasons.length) return null;
+  return Object.fromEntries(seasons.map((season) => [String(season.number), season.episodes.map((ep) => [ep.number, ep.runtime ?? null])]));
+}
 
 // ---------------------------------------------------------------------------
 //  Abonnements : les pages se redessinent quand les données changent.
@@ -60,12 +78,18 @@ async function fetchAll(table, orderColumn) {
 /** Charge toutes les données de l'utilisateur connecté. */
 export async function loadAll(user) {
   state.user = user;
-  const [items, ratings, watchlist, probe] = await Promise.all([
+  const [items, ratings, watchlist, probe, probe3] = await Promise.all([
     fetchAll('items', 'id'), fetchAll('ratings', 'id'), fetchAll('watchlist', 'added_at'),
     // Petit test : la colonne et la table ajoutées par la migration V2 existent-elles ?
     Promise.all([
       sb.from('items').select('credits_at').limit(1),
       sb.from('dismissed_suggestions').select('*').order('created_at'),
+    ]),
+    // … et celles de la migration V3 ?
+    Promise.all([
+      sb.from('items').select('seasons_meta').limit(1),
+      sb.from('recaps').select('kind, period, signature, seen_at, generated_at'),
+      sb.from('user_settings').select('theme, updated_at').maybeSingle(),
     ]),
   ]);
   state.items = new Map(items.map((item) => [item.id, item]));
@@ -73,6 +97,9 @@ export async function loadAll(user) {
   state.watchlist = new Map(watchlist.map((row) => [row.item_id, row.added_at]));
   state.v2 = !probe[0].error && !probe[1].error;
   state.dismissed = new Map((state.v2 ? probe[1].data : []).map((row) => [`${row.source}:${row.source_id}`, row]));
+  state.v3 = state.v2 && probe3.every((result) => !result.error);
+  state.recaps = new Map((state.v3 ? probe3[1].data : []).map((row) => [`${row.kind}:${row.period}`, row]));
+  state.settings = state.v3 ? probe3[2].data : null;
   state.loaded = true;
   emit();
 }
@@ -85,6 +112,9 @@ export function reset() {
   state.watchlist = new Map();
   state.dismissed = new Map();
   state.v2 = false;
+  state.v3 = false;
+  state.recaps = new Map();
+  state.settings = null;
   state.loaded = false;
 }
 
@@ -122,25 +152,6 @@ export function seasonAverage(itemId, season) {
     .filter((row) => row.item_id === itemId && row.season === season && row.episode != null && row.rating != null)
     .map((row) => row.rating);
   return notes.length ? { value: mean(notes), count: notes.length } : null;
-}
-
-/**
- * Résume les notes d'une œuvre à partir de ses lignes :
- *   direct   : note donnée à l'œuvre elle-même (ou null)
- *   value    : la note « la plus précise disponible » — la note directe, sinon
- *              la moyenne des saisons notées, sinon la moyenne des épisodes notés
- *   basis    : 'direct' | 'saisons' | 'épisodes' | null
- *   count    : nombre de notes ayant servi à la moyenne
- */
-export function summarizeRatings(rows) {
-  const main = rows.find((row) => row.season == null && row.episode == null) || null;
-  const seasons = rows.filter((row) => row.season != null && row.episode == null && row.rating != null).map((row) => row.rating);
-  const episodes = rows.filter((row) => row.episode != null && row.rating != null).map((row) => row.rating);
-  let value = null;
-  let basis = null;
-  let count = 0;
-  if (main?.rating != null) { value = main.rating; basis = 'direct'; count = 1; } else if (seasons.length) { value = mean(seasons); basis = 'saisons'; count = seasons.length; } else if (episodes.length) { value = mean(episodes); basis = 'épisodes'; count = episodes.length; }
-  return { main, direct: main?.rating ?? null, value, basis, count };
 }
 
 /** Moyenne indicative d'une série (à partir de ses saisons, sinon de ses épisodes). */
@@ -201,6 +212,8 @@ async function ensureItemNow(data) {
   const existing = data.id ? state.items.get(data.id) : findItem(data.source, data.source_id);
   if (existing) return existing;
   const row = { user_id: state.user.id };
+  // série : on garde tout de suite la durée de chaque épisode (temps de visionnage)
+  if (state.v3 && data.type === 'serie' && !data.seasons_meta && data.seasons) data = { ...data, seasons_meta: seasonsMetaOf(data.seasons), meta_at: new Date().toISOString() };
   for (const field of itemFields()) {
     if (LIST_FIELDS.includes(field)) row[field] = Array.isArray(data[field]) ? data[field] : [];
     else row[field] = data[field] ?? null;
@@ -388,3 +401,78 @@ setRemoteCache({
       .upsert({ hash, translated }, { onConflict: 'hash', ignoreDuplicates: true });
   },
 });
+
+// ---------------------------------------------------------------------------
+//  V3 : acteurs (tables partagées people / item_cast)
+// ---------------------------------------------------------------------------
+
+/**
+ * Acteurs déjà connus pour une liste d'œuvres (clés « wd:Q… » / « tm:… »).
+ * Renvoie Map(clé → [{ id, name, photo, ord }]) (rôle principal en premier).
+ */
+export async function loadCast(keys) {
+  const cast = new Map();
+  const unique = [...new Set(keys.filter(Boolean))];
+  for (let i = 0; i < unique.length; i += 80) {
+    const rows = check(await sb.from('item_cast')
+      .select('work, ord, person:people(id, name, photo_url)').in('work', unique.slice(i, i + 80)));
+    for (const row of rows) {
+      if (!row.person) continue;
+      if (!cast.has(row.work)) cast.set(row.work, []);
+      cast.get(row.work).push({ id: row.person.id, name: row.person.name, photo: row.person.photo_url, ord: row.ord });
+    }
+  }
+  for (const list of cast.values()) list.sort((a, b) => a.ord - b.ord);
+  return cast;
+}
+
+/** Enregistre la distribution d'une œuvre (ajout seulement : rien n'est écrasé). */
+export async function saveCast(work, people) {
+  if (!people.length) return;
+  check(await sb.from('people').upsert(
+    people.map((p) => ({ id: p.id, name: p.name, photo_url: p.photo || null })),
+    { onConflict: 'id', ignoreDuplicates: true },
+  ));
+  check(await sb.from('item_cast').upsert(
+    people.map((p, ord) => ({ work, person_id: p.id, ord })),
+    { onConflict: 'work,person_id', ignoreDuplicates: true },
+  ));
+}
+
+// ---------------------------------------------------------------------------
+//  V3 : récaps
+// ---------------------------------------------------------------------------
+export async function readRecap(kind, period) {
+  const { data, error } = await sb.from('recaps').select('*').eq('kind', kind).eq('period', period).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function saveRecap(kind, period, signature, data) {
+  const row = check(await sb.from('recaps').upsert(
+    { user_id: state.user.id, kind, period, signature, data, generated_at: new Date().toISOString() },
+    { onConflict: 'user_id,kind,period' },
+  ).select('kind, period, signature, seen_at, generated_at').single());
+  state.recaps.set(`${kind}:${period}`, row);
+  return row;
+}
+
+export async function markRecapSeen(kind, period) {
+  const row = check(await sb.from('recaps').update({ seen_at: new Date().toISOString() })
+    .eq('user_id', state.user.id).eq('kind', kind).eq('period', period)
+    .select('kind, period, signature, seen_at, generated_at').maybeSingle());
+  if (row) state.recaps.set(`${kind}:${period}`, row);
+  emit();
+}
+
+// ---------------------------------------------------------------------------
+//  V3 : réglages (thème de couleurs)
+// ---------------------------------------------------------------------------
+export async function saveSettings(theme) {
+  if (!state.v3 || !state.user) return;
+  const row = check(await sb.from('user_settings').upsert(
+    { user_id: state.user.id, theme },
+    { onConflict: 'user_id' },
+  ).select('theme, updated_at').single());
+  state.settings = row;
+}

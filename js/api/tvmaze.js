@@ -111,7 +111,7 @@ export async function getCast(id, signal, max = 6) {
     .map((entry) => entry.person)
     .filter((person) => person?.id && !seen.has(person.id) && seen.add(person.id))
     .slice(0, max)
-    .map((person) => ({ id: `tm${person.id}`, name: person.name }));
+    .map((person) => ({ id: `tm${person.id}`, name: person.name, photo: person.image?.medium?.replace(/^http:/, 'https:') || null }));
 }
 
 /** Les autres séries d'un acteur (identifiant « tm14245 »), avec leur fiche courte. */

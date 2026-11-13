@@ -2,7 +2,7 @@
 //  Page « Compte » : email, déconnexion, changement de mot de passe,
 //  export de ses données.
 // ============================================================================
-import { h, toast } from '../utils.js';
+import { h, icon, toast } from '../utils.js';
 import { sb } from '../supabase.js';
 import { state, collection } from '../store.js';
 import { pageHeader } from '../ui/cards.js';
@@ -58,6 +58,7 @@ export function renderAccount(root) {
 
   root.replaceChildren(
     pageHeader('Compte'),
+    h('a', { class: 'btn account__settings', href: '#/reglages' }, icon('gear', 18), 'Réglages : couleurs et apparence'),
     h('section', { class: 'panel' },
       h('h2', { class: 'panel__title' }, 'Connecté en tant que'),
       h('p', { class: 'account__email' }, state.user?.email || ''),

@@ -12,6 +12,8 @@ import { renderItem } from './views/item.js';
 import { renderResults } from './views/results.js';
 import { renderAccount } from './views/account.js';
 import { renderForYou } from './views/foryou.js';
+import { renderRecaps } from './views/recaps.js';
+import { renderSettings, applyRemoteTheme } from './views/settings.js';
 import { createSearch } from './ui/search.js';
 import { brand } from './ui/logo.js';
 
@@ -26,6 +28,7 @@ const NAV = [
   { href: '#/', label: 'Collection', icon: 'grid', match: ['', 'collection'] },
   { href: '#/a-voir', label: 'À voir', icon: 'bookmark', match: ['a-voir'] },
   { href: '#/pour-toi', label: 'Pour toi', icon: 'sparkles', match: ['pour-toi'] },
+  { href: '#/recaps', label: 'Récaps', icon: 'replay', match: ['recaps'] },
   { href: '#/stats', label: 'Stats', icon: 'chart', match: ['stats'] },
   { href: '#/compte', label: 'Compte', icon: 'user', match: ['compte'] },
 ];
@@ -76,7 +79,8 @@ function showShell() {
       h('div', { class: 'topbar__inner' },
         brand({ href: '#/' }),
         createSearch(),
-        h('nav', { class: 'nav nav--top', 'aria-label': 'Navigation principale' }, NAV.map(link)))),
+        h('nav', { class: 'nav nav--top', 'aria-label': 'Navigation principale' }, NAV.map(link)),
+        h('a', { class: 'icon-btn topbar__settings', href: '#/reglages', 'aria-label': 'Réglages', title: 'Réglages', dataset: { match: 'reglages' } }, icon('gear', 20)))),
     view,
     h('nav', { class: 'nav nav--bottom', 'aria-label': 'Navigation principale' }, NAV.map(link)));
 }
@@ -104,6 +108,8 @@ function route() {
 
   if (page === 'a-voir') renderWatchlist(view);
   else if (page === 'pour-toi') leaveView = renderForYou(view);
+  else if (page === 'recaps') leaveView = renderRecaps(view, { open: new URLSearchParams(query).get('ouvrir') });
+  else if (page === 'reglages') leaveView = renderSettings(view);
   else if (page === 'stats') renderStats(view);
   else if (page === 'compte') renderAccount(view);
   else if (page === 'recherche' && parts[1]) leaveView = renderResults(view, parts.slice(1).join('/'));
@@ -111,7 +117,7 @@ function route() {
     leaveView = renderItem(view, { source: parts[1], id: parts[2], focusRating: new URLSearchParams(query).has('noter') });
   } else renderCollection(view);
 
-  for (const node of document.querySelectorAll('.nav__link')) {
+  for (const node of document.querySelectorAll('.nav__link, .topbar__settings')) {
     const active = node.dataset.match.split(' ').includes(page);
     node.classList.toggle('is-active', active);
     if (active) node.setAttribute('aria-current', 'page'); else node.removeAttribute('aria-current');
@@ -154,6 +160,7 @@ async function onSession(session) {
   } finally {
     loadingUser = null;
   }
+  applyRemoteTheme(); // le thème enregistré en ligne suit d'un appareil à l'autre
   showShell();
   route();
 }

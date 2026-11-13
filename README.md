@@ -1,6 +1,6 @@
 # MaCinéthèque
 
-Un site personnel pour **noter les films et les séries que tu regardes** : recherche avec autocomplétion, notes de 1 à 5 étoiles (films, séries, saisons, épisodes), commentaires, dates de visionnage, liste « à voir », statistiques. Il fonctionne sur ordinateur comme sur iPhone, où il s'installe comme une application.
+Un site personnel pour **noter les films et les séries que tu regardes** : recherche avec autocomplétion, notes de 1 à 5 étoiles (films, séries, saisons, épisodes), commentaires, dates de visionnage, liste « à voir », suggestions, statistiques détaillées (temps de visionnage, acteurs), récaps du mois et de l'année, thèmes de couleurs. Il fonctionne sur ordinateur comme sur iPhone, où il s'installe comme une application.
 
 - **Site** : HTML / CSS / JavaScript simples, sans étape de fabrication → hébergé gratuitement sur **GitHub Pages**.
 - **Comptes et données** : **Supabase** (offre gratuite). Chaque utilisateur ne voit et ne modifie que ses propres données.
@@ -18,7 +18,7 @@ Un site personnel pour **noter les films et les séries que tu regardes** : rech
 6. [Créer ton compte sur le site](#étape-6--créer-ton-compte-sur-le-site)
 7. [Installer le site sur l'iPhone](#étape-7--installer-le-site-sur-lécran-daccueil-de-liphone)
 
-Tu avais déjà installé la première version ? Va directement à [Passer à la version 2](#passer-à-la-version-2).
+Tu avais déjà installé une version précédente ? Va directement à [Passer à la version 2](#passer-à-la-version-2) puis à [Passer à la version 3](#passer-à-la-version-3).
 
 Puis : [utilisation](#utilisation), [modifier le site](#modifier-le-site-plus-tard), [dépannage](#dépannage), [comment c'est fait](#comment-cest-fait), [limites à connaître](#limites-à-connaître), [tests réalisés](#tests-réalisés).
 
@@ -226,6 +226,26 @@ Tant que ce script n'est pas collé, le site fonctionne comme avant ; seule la p
 - Dans Supabase → **Table Editor**, il y a deux nouvelles tables : `dismissed_suggestions` et `suggestions_cache`.
 - La nouvelle icône (caméra) n'apparaît pas sur l'iPhone ? Supprime l'ancienne icône de l'écran d'accueil et ajoute le site à nouveau (étape 7).
 
+## Passer à la version 3
+
+La version 3 ajoute le **temps de visionnage** (par jour, mois, année ou depuis toujours), les **acteurs** les plus regardés et préférés, la page **Récaps** (récap du mois et de l'année en plein écran, image à partager) et la page **Réglages** (thème « Bleu givré » par défaut, 10 thèmes, couleur personnalisée, mode clair / sombre / automatique).
+
+**Une seule chose à faire : coller un script SQL dans Supabase.** Il n'efface et ne modifie aucune de tes notes (il ajoute seulement des colonnes et quatre tables). La version 2 doit déjà être en place.
+
+1. Ouvre ce fichier : [`supabase/migration_v3.sql`](supabase/migration_v3.sql). Sur GitHub, clique sur l'icône **Copy raw file** (deux petits carrés, en haut à droite du code).
+2. Dans Supabase, menu de gauche : **SQL Editor**, puis le bouton **+** / **New query** → **Create a new snippet**.
+3. Colle (Ctrl+V), puis clique sur **Run**.
+4. Tu dois lire **Success. No rows returned**.
+5. Recharge le site (deux fois si besoin, ou ferme et rouvre l'application sur l'iPhone).
+
+Tant que ce script n'est pas collé, le site fonctionne : les statistiques de temps et le thème marchent déjà (le thème reste alors sur l'appareil), seules les pages **Récaps** et la partie **Acteurs** affichent un message d'attente. Le script peut être relancé sans danger.
+
+**Pour vérifier que tout va bien :**
+- **Ma collection** montre toujours toutes tes œuvres, avec les mêmes notes.
+- Dans Supabase → **Table Editor**, il y a quatre nouvelles tables : `people`, `item_cast`, `recaps` et `user_settings`.
+- Page **Stats** : la première ouverture complète les durées et les acteurs de tes œuvres (une barre de progression l'indique, quelques dizaines de secondes) ; ensuite tout est immédiat.
+- Choisis un thème dans **Réglages** (engrenage en haut à droite) puis ouvre le site sur un autre appareil : après connexion, le même thème s'affiche.
+
 ## Utilisation
 
 | Action | Comment |
@@ -246,6 +266,11 @@ Tant que ce script n'est pas collé, le site fonctionne comme avant ; seule la p
 | Email oublié | Sur l'écran de connexion, **Email oublié ?** : le site affiche les adresses déjà utilisées pour se connecter sur cet appareil (un appui la reprend) et explique où retrouver la bonne. Ces adresses restent dans le navigateur, elles ne sont envoyées nulle part. En tant que propriétaire du site, tu peux aussi voir tous les comptes dans Supabase → **Authentication** → **Users**. |
 | Résumés | Les résumés en anglais sont traduits automatiquement ; **voir l'original** affiche le texte d'origine. |
 | Sauvegarde | Page **Compte** → **Exporter mes données** télécharge toutes tes notes dans un fichier. |
+| Temps de visionnage | Page **Stats** : choisis **Jour**, **Mois**, **Année** ou **Depuis toujours**, change de période avec **‹ ›** ou en touchant la date (calendrier ou liste, rien à taper). Tous les chiffres de la page (films, séries, saisons, épisodes, genres, pays, notes, acteurs) suivent la période choisie. |
+| Comment le temps est compté | Chaque film ou épisode compte à sa date de visionnage ; « date inconnue » ne compte que dans « Depuis toujours ». Sans durée connue : 110 min pour un film, 45 min pour un épisode (« durée estimée »). Une saison notée ou marquée vue sans ses épisodes compte tous ses épisodes à la date de la saison, sans jamais compter deux fois un épisode noté à part. Une note donnée à la série entière seule n'ajoute pas de temps. |
+| Acteurs | Page **Stats**, en bas : **le plus regardé** (au temps passé, puis au nombre d'œuvres) et **le préféré** (meilleure moyenne, au moins 2 œuvres notées). Filtre **Films / Séries / Les deux**. Touche un acteur pour voir ses œuvres que tu as vues. |
+| Récaps | Le récap d'un mois arrive le 1er du mois suivant ; celui de l'année, « en cours » dès le 1er décembre puis définitif le 1er janvier. Une bannière sur l'accueil prévient. Touche à droite (ou glisse) pour avancer, à gauche pour revenir, ✕ pour fermer. Le dernier écran propose **Partager** : une image 1080 × 1920 pour le menu de partage de l'iPhone (ou téléchargée sur ordinateur). |
+| Couleurs | **Réglages** (engrenage en haut à droite, ou page **Compte**) : 10 thèmes, une couleur personnalisée (roue de couleur ou code), mode **Sombre / Clair / Automatique**, **Réinitialiser**. Le choix suit ton compte sur tous tes appareils. L'icône de l'application sur l'iPhone reste en Bleu givré. |
 
 ## Modifier le site plus tard
 
@@ -274,14 +299,16 @@ macinetheque/
 ├── index.html              page unique du site
 ├── manifest.webmanifest    description de l'application installable (PWA)
 ├── sw.js                   service worker : installation + ouverture hors-ligne
-├── css/style.css           toute la mise en forme (thème sombre, responsive)
+├── css/style.css           toute la mise en forme (couleurs via variables de thème, responsive)
 ├── icons/                  icônes (favicon, iPhone, Android)
 ├── lib/supabase.js         bibliothèque officielle Supabase (copie locale, v2.119.0)
 ├── supabase/
 │   ├── schema.sql          ← installation neuve : tout le schéma (tables + règles RLS)
-│   └── migration_v2.sql    ← mise à jour d'une base créée avec la première version
+│   ├── migration_v2.sql    ← mise à jour V1 → V2
+│   └── migration_v3.sql    ← mise à jour V2 → V3
 └── js/
     ├── config.js           ← LE fichier à remplir (URL + clé Supabase)
+    ├── theme.js            thèmes de couleurs, appliqués avant l'affichage (pas de flash)
     ├── app.js              démarrage, connexion, navigation entre les pages
     ├── supabase.js         connexion à Supabase
     ├── store.js            lecture / écriture des données de l'utilisateur
@@ -302,6 +329,13 @@ macinetheque/
     │   ├── logo.js         le logo (caméra à bobines)
     │   ├── cards.js        affiches, grilles, squelettes, états vides
     │   └── charts.js       graphiques SVG des statistiques
+    ├── stats/
+    │   ├── core.js         règles communes du temps de visionnage (stats, récaps, acteurs)
+    │   └── complete.js     complète durées et acteurs des œuvres déjà notées
+    ├── recap/
+    │   ├── service.js      récaps disponibles, calcul et cache
+    │   ├── story.js        lecture plein écran façon « stories »
+    │   └── share.js        image 1080 × 1920 à partager
     ├── reco/
     │   ├── profile.js      profil de goûts, score et raison d'une suggestion, variété
     │   └── engine.js       recherche des œuvres candidates, cache de 24 h, classement
@@ -312,7 +346,9 @@ macinetheque/
         ├── foryou.js       page « Pour toi » (suggestions)
         ├── item.js         fiche d'une œuvre et notation
         ├── results.js      page de résultats de recherche
-        ├── stats.js        statistiques
+        ├── stats.js        statistiques (temps, compteurs, acteurs)
+        ├── recaps.js       page « Récaps »
+        ├── settings.js     page « Réglages » (couleurs, mode)
         └── account.js      compte (déconnexion, mot de passe, export)
 ```
 
@@ -326,8 +362,14 @@ macinetheque/
 | `dismissed_suggestions` | Les suggestions écartées avec « Pas intéressé » (V2) | Uniquement son propriétaire |
 | `suggestions_cache` | Les suggestions calculées, gardées environ 24 h (V2) | Uniquement son propriétaire |
 | `translations_cache` | Empreinte du texte original → traduction française | Tout utilisateur connecté : lecture et ajout seulement (aucune donnée personnelle) |
+| `recaps` | Récaps du mois et de l'année déjà calculés, avec leur empreinte (recalculés si une note de la période change) et la date d'ouverture (V3) | Uniquement son propriétaire |
+| `user_settings` | Thème de couleurs et mode (V3) | Uniquement son propriétaire |
+| `people` | Acteurs : identifiant Wikidata (`Q…`) ou TVMaze (`tm…`), nom, photo (V3) | Tout utilisateur connecté : lecture et ajout seulement (données publiques) |
+| `item_cast` | Acteurs principaux de chaque film ou série (V3) | Tout utilisateur connecté : lecture et ajout seulement |
 
-La **Row Level Security** est activée sur les 6 tables ; un visiteur non connecté n'a accès à rien.
+La table `items` garde aussi, depuis la V3, la durée de chaque épisode par saison (`seasons_meta`), pour le temps de visionnage.
+
+La **Row Level Security** est activée sur les 10 tables ; un visiteur non connecté n'a accès à rien.
 
 ### Comment sont calculées les suggestions
 
@@ -361,6 +403,8 @@ Toutes les API utilisées autorisent les appels depuis un site web : **aucun ser
 - **Suggestions** : le premier calcul prend 15 à 25 secondes (les films s'affichent d'abord, les séries ensuite) ; les ouvertures suivantes sont instantanées pendant 24 h. Les « acteurs principaux » d'un film sont ses acteurs les plus connus, faute d'ordre d'affiche dans Wikidata. Les acteurs de films et de séries ne sont pas reliés entre eux : aimer un acteur dans une série ne fait pas encore remonter ses films.
 - **Affiches des suggestions de films** : elles viennent de Wikipédia, une par une. Si Wikipédia limite les demandes, certaines apparaissent avec quelques secondes de retard, ou à la visite suivante.
 - **Supabase gratuit** : un projet sans aucune visite pendant une semaine est **mis en pause**. Tes données ne sont pas perdues : rouvre le tableau de bord Supabase et relance le projet avec le bouton proposé.
+- **Acteurs des films** : Wikidata ne donne pas l'ordre de l'affiche ; les « acteurs principaux » d'un film sont donc ses 10 acteurs les plus connus. Pour les séries, ce sont les 10 premiers de la distribution TVMaze. Quelques photos manquent : un rond avec les initiales les remplace.
+- **Durées** : quand ni Wikidata ni TVMaze ne connaissent la durée, le site compte 110 min par film et 45 min par épisode, et l'indique (« durée estimée »).
 - **Hors-ligne** : l'application s'ouvre sans réseau, mais noter ou chercher demande une connexion.
 
 ## Tests réalisés
@@ -369,7 +413,7 @@ Le site a été testé dans un vrai navigateur (Chromium piloté automatiquement
 
 | Domaine | Vérifications |
 |---|---|
-| **Sécurité (RLS)** — 50 contrôles | Deux comptes A et B : B ne voit aucune ligne de A, ne peut ni modifier ni supprimer ses notes (même en visant leurs identifiants), ni écrire en son nom, ni rattacher une note à une œuvre de A ; un visiteur non connecté n'a accès à rien ; notes hors de 1 à 5 refusées ; pas de doublon par (utilisateur, œuvre, saison, épisode). |
+| **Sécurité (RLS)** — 65 contrôles | Deux comptes A et B : B ne voit aucune ligne de A, ne peut ni modifier ni supprimer ses notes (même en visant leurs identifiants), ni écrire en son nom, ni rattacher une note à une œuvre de A ; un visiteur non connecté n'a accès à rien ; notes hors de 1 à 5 refusées ; pas de doublon par (utilisateur, œuvre, saison, épisode). |
 | **Couverture du catalogue** — 1 478 œuvres | Les 569 films les plus connus au monde, 266 films français, 500 séries très connues et 143 séries françaises, passés un par un dans la recherche du site : **1 478 trouvés sur 1 478**, dont 1 477 dans les 8 premières suggestions (le dernier, raté passager de Wikidata, est trouvé en tête au nouvel essai) ; titre original ou anglais : 784 sur 785. |
 | **Recherche** | « Inception » (film) et « Breaking Bad » (série) trouvés, y compris dès « break » ; titres d'un mot courant (« Heat », « Seven », « Ça », « Alien », « Up » → *Là-haut*) ; films et séries mélangés ; attente de 300 ms ; texte grisé accepté par Tab et → ; flèches, Entrée, Échap ; message propre sans résultat. |
 | **Fiches et notation** | Film : affiche, année, pays, genres, durée, note, commentaire, date, modification, suppression. Série : 5 saisons / 62 épisodes, note globale, note de saison, note d'épisode, « marquer toute la saison comme vue » sans écraser les notes. Tout est conservé après rechargement. |
@@ -383,6 +427,12 @@ Le site a été testé dans un vrai navigateur (Chromium piloté automatiquement
 | **V2 — confirmation en grand** | Coche, titre, « Saison 1 » / « S02E01 », étoiles ; disparition seule (~1,2 s) ou d'un clic ; écran d'échec avec « Réessayer » sans perte du commentaire ; version simple si « moins d'animations » est activé. |
 | **V2 — suggestions** | Compte neuf : œuvres populaires + invitation à noter. Après 5 notes : films de Nolan en tête (« Parce que tu as aimé *Inception* (même réalisateur) »), jamais plus de deux à la suite, séries via les acteurs de Breaking Bad, rien de déjà noté, Cameron écarté après un 2★ ; cache relu sans aucune requête ; filtres ; « Déjà vu → noter » (film, et épisode précis d'une série), « À voir », « Pas intéressé » ; rien ne revient après rechargement. |
 | **V2 — mots de passe et logo** | Œil (focus et curseur conservés), confirmation en direct, bouton bloqué tant que les deux diffèrent ; logo caméra partout, icônes 32 / 180 / 192 / 512, service worker en version 2. |
+| **V3 — temps de visionnage** — 40 contrôles | Compte de test (7 œuvres, 14 notes datées) : somme des jours = total du mois, somme des mois = total de l'année, années + « date inconnue » = « depuis toujours » ; saison 1 marquée vue sans épisodes → 7 épisodes comptés, l'épisode noté à part une seule fois à sa propre date ; durée manquante complétée ; flèches bloquées avant le premier visionnage et après aujourd'hui ; graphiques (12 mois, 31 jours) ; liste d'un jour. |
+| **V3 — acteurs** | Filtres Films / Séries / Les deux comparés au calcul commun ; aucun acteur de série dans « Films » ; préféré seulement avec au moins 2 œuvres notées (septembre : aucun) ; formats « 10 h · 1 œuvre » et « 4,6★ de moyenne sur 4 œuvres » ; fiche acteur ; initiales sans photo. |
+| **V3 — récaps** — 31 contrôles | Bannière « Ton récap d'octobre est prêt » qui ouvre le récap ; pas de récap pour le mois en cours ni les mois vides ; écrans sans données sautés ; toucher, glisser, clavier, barres de progression ; chiffres animés (et directs si « moins d'animations ») ; image PNG 1080 × 1920 ; marqué vu dans Supabase ; cache relu, puis recalculé après une note modifiée ; année « en cours » au 2 décembre et définitive au 1er janvier (date simulée). |
+| **V3 — thèmes** — 23 contrôles | Palette « Bleu givré » exacte au premier lancement ; 10 thèmes × sombre / clair appliqués en direct avec contrastes WCAG AA ; Duo ; couleur personnalisée (roue et code) avec nuances calculées ; mode automatique ; pas de flash (thème posé avant la feuille de style) ; même thème sur un 2e appareil après connexion ; Réinitialiser ; aucune trace d'ambre hors du thème « Ambre ». |
+| **V3 — iPhone** — 22 contrôles | iPhone SE et iPhone 13 : barre du bas à 6 onglets lisibles, aucune page qui déborde, sélecteur de période sur une ligne, récaps en plein écran sans texte coupé. |
+| **V3 — sécurité et migration** | 15 contrôles de plus : `recaps` et `user_settings` invisibles et intouchables pour un autre compte ; `people` / `item_cast` en lecture + ajout seulement, personne ne peut modifier ni effacer ; migration appliquée deux fois sans changer aucune donnée ; `schema.sql` complet vérifié sur une base neuve. |
 | **V2 — migration** | Script appliqué deux fois sur une base remplie : toutes les données identiques avant / après ; le site fonctionne aussi tant que le script n'est pas collé. |
 
 Non testé ici, faute de pouvoir créer des comptes à ta place : le projet Supabase **en ligne**, la publication **GitHub Pages** et l'installation sur un **vrai iPhone**.

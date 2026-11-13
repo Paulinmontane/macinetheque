@@ -55,6 +55,11 @@ const ICONS = {
   back: 'M15 6l-6 6 6 6',
   plus: 'M12 5v14M5 12h14',
   close: 'M6 6l12 12M18 6L6 18',
+  gear: 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4z',
+  replay: 'M4 5h16v14H4zM10 9.5v5l4.5-2.5z',
+  'chevron-left': 'M15 6l-6 6 6 6',
+  share: 'M12 3v12M7.5 7.5L12 3l4.5 4.5M5 13v6h14v-6',
+  clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
   eye: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
   'eye-off': 'M3 3l18 18M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.5 6.6C3.6 8.5 2 12 2 12s3.6 7 10 7c1.7 0 3.2-.5 4.5-1.2M9.9 9.9a3 3 0 0 0 4.2 4.2',
   sparkles: 'M10 3l1.8 5.2L17 10l-5.2 1.8L10 17l-1.8-5.2L3 10l5.2-1.8zM18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z',
@@ -177,6 +182,25 @@ export function formatDuration(minutes) {
   const rest = Math.round(minutes % 60);
   if (!hours) return `${rest} min`;
   return rest ? `${hours} h ${String(rest).padStart(2, '0')}` : `${hours} h`;
+}
+
+/**
+ * Temps de visionnage : « 45 min », « 12 h 35 min », ou « 3 j 4 h » au-delà
+ * de deux jours (plus parlant que « 76 h »).
+ */
+export function formatTime(minutes) {
+  const total = Math.round(minutes || 0);
+  if (total < 60) return `${total} min`;
+  const hours = Math.floor(total / 60);
+  const rest = total % 60;
+  if (hours < 48) return rest ? `${hours} h ${String(rest).padStart(2, '0')} min` : `${hours} h`;
+  const days = Math.floor(hours / 24);
+  return hours % 24 ? `${days} j ${hours % 24} h` : `${days} j`;
+}
+
+/** Initiales d'un nom (« Bryan Cranston » → « BC ») pour les avatars sans photo. */
+export function initials(name) {
+  return String(name || '?').split(/[\s-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toLocaleUpperCase('fr')).join('');
 }
 
 /** Nombre au format français (4,2). */

@@ -576,3 +576,38 @@ export async function findFilmId(title, year, signal) {
     || candidates.find((c) => year && c.year && Math.abs(c.year - year) <= 1 && normalize(c.title).startsWith(wanted));
   return match ? match.source_id : null;
 }
+
+/**
+ * Acteurs principaux de films, avec leur photo (Wikidata P161 + P18).
+ * Wikidata ne garde pas l'ordre de l'affiche : on retient les `max` acteurs
+ * les plus connus de la distribution (ceux dont parlent le plus de
+ * Wikipédias), ce qui correspond en pratique aux rôles principaux.
+ * Renvoie Map(identifiant du film → [{ id, name, photo }]).
+ */
+export async function getCastWithPhotos(qids, signal, max = 10) {
+  const result = new Map();
+  for (const part of chunks(qids.filter((q) => /^Q\d+$/.test(q)), 20)) {
+    const rows = await sparql(`SELECT ?film ?person ?personLabel ?psl (SAMPLE(?img) AS ?photo) WHERE {
+      hint:Query hint:optimizer "None".
+      VALUES ?film { ${part.map((q) => `wd:${q}`).join(' ')} }
+      ?film wdt:P161 ?person.
+      ?person wikibase:sitelinks ?psl.
+      OPTIONAL { ?person wdt:P18 ?img }
+      ${LABELS}
+    } GROUP BY ?film ?person ?personLabel ?psl`, signal, 25000);
+    for (const qid of part) result.set(qid, []);
+    for (const row of rows) {
+      if (!row.personLabel || /^Q\d+$/.test(row.personLabel)) continue;
+      result.get(qidOf(row.film))?.push({
+        id: qidOf(row.person), name: row.personLabel, fame: Number(row.psl) || 0,
+        photo: row.photo ? `${row.photo.replace(/^http:/, 'https:')}?width=240` : null,
+      });
+    }
+    for (const [qid, list] of result) {
+      const seen = new Set();
+      result.set(qid, list.filter((p) => !seen.has(p.id) && seen.add(p.id)).sort((a, b) => b.fame - a.fame).slice(0, max)
+        .map(({ id, name, photo }) => ({ id, name, photo })));
+    }
+  }
+  return result;
+}
